@@ -1,0 +1,6 @@
+**
+!src/
+!src/**
+**/bin/
+**/obj/
+!NuGet.Config

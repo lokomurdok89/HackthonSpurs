@@ -1,0 +1,6 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/HackthonSpurs.Api/HackthonSpurs.Api.csproj" />
+    <Project Path="src/HackthonSpurs.Documents/HackthonSpurs.Documents.csproj" />
+  </Folder>
+</Solution>
