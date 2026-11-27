@@ -1,0 +1,436 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "HackthonSpurs Document API",
+    "version": "0.1.0",
+    "description": "Contract-first, same-origin, local single-user demo. Synthetic examples only. No live backend is implied. The Worker and reader are private to the backend."
+  },
+  "paths": {
+    "/api/documents": {
+      "post": {
+        "operationId": "uploadDocument",
+        "summary": "Accept one file for asynchronous reading",
+        "description": "PDF, XLSX and CSV are the initial allowlist; verify actual content server-side. The file byte limit is configurable (demo default 20 MiB). New key = new operation. Same key and identical file bytes (even with a different name) = same receipt; same key and different bytes = 409. Do not use file name or digest alone as the key.",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "description": "Client-generated UUID per upload action; reuse it after network loss.",
+            "schema": {"type":"string","format":"uuid"}
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["file"],
+                "properties": {"file":{"type":"string","format":"binary"}},
+                "additionalProperties": false
+              },
+              "encoding": {
+                "file": {
+                  "contentType": "application/pdf, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, text/csv, application/octet-stream"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Original stored and document + queued job committed, or replay of a previously accepted operation. Never creates a second job on replay; status may already be terminal.",
+            "headers": {
+              "Location": {
+                "required": true,
+                "description": "Same-origin relative status URL.",
+                "schema": {"type":"string","format":"uri-reference"},
+                "example": "/api/documents/10000000-0000-4000-8000-000000000002"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {"$ref":"#/components/schemas/Receipt"},
+                "examples": {"accepted":{"value":{"id":"10000000-0000-4000-8000-000000000002"}}}
+              }
+            }
+          },
+          "400": {"$ref":"#/components/responses/InvalidRequest"},
+          "409": {
+            "description": "The key was already accepted for different file bytes.",
+            "content": {
+              "application/problem+json": {
+                "schema": {"$ref":"#/components/schemas/Problem"},
+                "examples": {
+                  "conflict": {
+                    "value": {
+                      "status": 409,
+                      "code": "idempotency_conflict",
+                      "title": "This upload key was used for different file content."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Configured upload size limit exceeded.",
+            "content": {
+              "application/problem+json": {
+                "schema": {"$ref":"#/components/schemas/Problem"},
+                "examples": {
+                  "tooLarge": {
+                    "value": {"status":413,"code":"file_too_large","title":"File exceeds the upload size limit."}
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported request media type or file format (including a mismatched signature).",
+            "content": {
+              "application/problem+json": {
+                "schema": {"$ref":"#/components/schemas/Problem"},
+                "examples": {
+                  "unsupported": {
+                    "value": {
+                      "status": 415,
+                      "code": "unsupported_media_type",
+                      "title": "Unsupported file or request format."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {"$ref":"#/components/responses/Unavailable"}
+        }
+      }
+    },
+    "/api/documents/{id}": {
+      "parameters": [{"$ref":"#/components/parameters/DocumentId"}],
+      "get": {
+        "operationId": "getDocumentStatus",
+        "summary": "Read an existing document's processing state",
+        "description": "Read-only. Poll Queued/Processing, including Processing → Queued on transient retry. Stop on Completed or Failed. A successful status lookup is HTTP 200 even for Failed.",
+        "responses": {
+          "200": {
+            "description": "Current durable state; a completed result is available atomically.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref":"#/components/schemas/DocumentStatus"},
+                "examples": {
+                  "queued": {"value":{"id":"10000000-0000-4000-8000-000000000002","state":"Queued","attempt":0}},
+                  "processing": {
+                    "value": {"id":"10000000-0000-4000-8000-000000000002","state":"Processing","attempt":1}
+                  },
+                  "retryQueued": {"value":{"id":"10000000-0000-4000-8000-000000000002","state":"Queued","attempt":1}},
+                  "completed": {
+                    "value": {"id":"10000000-0000-4000-8000-000000000002","state":"Completed","attempt":1}
+                  },
+                  "failed": {
+                    "value": {
+                      "id": "10000000-0000-4000-8000-000000000002",
+                      "state": "Failed",
+                      "attempt": 3,
+                      "failureCode": "reader_timeout"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {"$ref":"#/components/responses/InvalidId"},
+          "404": {"$ref":"#/components/responses/NotFound"},
+          "503": {"$ref":"#/components/responses/Unavailable"}
+        }
+      }
+    },
+    "/api/documents/{id}/result": {
+      "parameters": [{"$ref":"#/components/parameters/DocumentId"}],
+      "get": {
+        "operationId": "getDocumentResult",
+        "summary": "Read persisted evidence without scheduling work",
+        "responses": {
+          "200": {
+            "description": "Completed technical reading (possibly partial). The examples are alternative synthetic responses, not decisions or a multi-file response.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref":"#/components/schemas/ReadResult"},
+                "examples": {
+                  "materialsRow": {
+                    "value": {
+                      "documentId": "10000000-0000-4000-8000-000000000001",
+                      "version": "1",
+                      "readerVersion": "synthetic-1",
+                      "fragments": [
+                        {
+                          "method": "native",
+                          "locator": {"kind":"cells","sheet":"Materiales","range":"B12:E12"},
+                          "text": "CAS-014 | Sample bushing | CERT-027 | Example Metals"
+                        }
+                      ],
+                      "warnings": []
+                    }
+                  },
+                  "unconfirmedLink": {
+                    "value": {
+                      "documentId": "10000000-0000-4000-8000-000000000002",
+                      "version": "1",
+                      "readerVersion": "synthetic-1",
+                      "fragments": [
+                        {
+                          "method": "native",
+                          "locator": {"kind":"page","page":1},
+                          "text": "Supplier: Example Metals. Material grade: G2."
+                        }
+                      ],
+                      "warnings": []
+                    }
+                  },
+                  "originNotDemonstrated": {
+                    "value": {
+                      "documentId": "10000000-0000-4000-8000-000000000002",
+                      "version": "1",
+                      "readerVersion": "synthetic-1",
+                      "fragments": [
+                        {
+                          "method": "native",
+                          "locator": {"kind":"page","page":1},
+                          "text": "CERT-027 | CAS-014 | Grade G2 | Example Metals | Supplier address: Canada."
+                        }
+                      ],
+                      "warnings": []
+                    }
+                  },
+                  "unreadableSection": {
+                    "value": {
+                      "documentId": "10000000-0000-4000-8000-000000000002",
+                      "version": "1",
+                      "readerVersion": "synthetic-1",
+                      "fragments": [
+                        {
+                          "method": "ocr",
+                          "locator": {"kind":"page","page":1},
+                          "text": "CERT-027 | CAS-014 | Grade G2."
+                        }
+                      ],
+                      "warnings": [
+                        {
+                          "code": "unreadable_region",
+                          "message": "The bottom section is cropped. Inspect the original page.",
+                          "locator": {"kind":"page","page":1}
+                        }
+                      ]
+                    }
+                  },
+                  "csvCell": {
+                    "value": {
+                      "documentId": "10000000-0000-4000-8000-000000000001",
+                      "version": "1",
+                      "readerVersion": "synthetic-1",
+                      "fragments": [
+                        {"method":"native","locator":{"kind":"csvCell","row":12,"column":2},"text":"CAS-014"}
+                      ],
+                      "warnings": []
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {"$ref":"#/components/responses/InvalidId"},
+          "404": {"$ref":"#/components/responses/NotFound"},
+          "409": {
+            "description": "Document exists but has no result. Pending is temporary; Failed is terminal.",
+            "content": {
+              "application/problem+json": {
+                "schema": {"$ref":"#/components/schemas/Problem"},
+                "examples": {
+                  "pending": {
+                    "value": {"status":409,"code":"result_not_ready","title":"Document is queued or processing."}
+                  },
+                  "failed": {
+                    "value": {
+                      "status": 409,
+                      "code": "processing_failed",
+                      "title": "Processing failed; no result is available."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {"$ref":"#/components/responses/Unavailable"}
+        }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "DocumentId": {"name":"id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}
+    },
+    "schemas": {
+      "Receipt": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {"id":{"type":"string","format":"uuid"}},
+        "description": "Stable identity of the accepted operation. Query Location for its current state, including on replay."
+      },
+      "DocumentStatus": {
+        "type": "object",
+        "required": ["id","state","attempt"],
+        "properties": {
+          "id": {"type":"string","format":"uuid"},
+          "state": {"type":"string","enum":["Queued","Processing","Completed","Failed"]},
+          "attempt": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Number of claims so far; zero before the first claim. It does not reset when a transient failure requeues a job."
+          },
+          "failureCode": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Safe machine-readable terminal cause; present only in Failed. Never provider text or document content."
+          }
+        },
+        "if": {"properties":{"state":{"const":"Failed"}}},
+        "then": {"required":["failureCode"]},
+        "else": {"not":{"required":["failureCode"]}}
+      },
+      "Locator": {
+        "description": "Position in the original, not in rasterized or concatenated text. Page/row/column indexes start at 1. Spreadsheet names are source data; do not translate them.",
+        "oneOf": [
+          {
+            "type": "object",
+            "required": ["kind","page"],
+            "properties": {"kind":{"const":"page"},"page":{"type":"integer","minimum":1}}
+          },
+          {
+            "type": "object",
+            "required": ["kind","sheet","range"],
+            "properties": {
+              "kind": {"const":"cells"},
+              "sheet": {"type":"string","minLength":1},
+              "range": {
+                "type": "string",
+                "pattern": "^[A-Z]+[1-9][0-9]*(:[A-Z]+[1-9][0-9]*)?$",
+                "description": "A1 cell or rectangular range in the indicated worksheet."
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["kind","row","column"],
+            "properties": {
+              "kind": {"const":"csvCell"},
+              "row": {"type":"integer","minimum":1},
+              "column": {"type":"integer","minimum":1}
+            }
+          }
+        ]
+      },
+      "Fragment": {
+        "type": "object",
+        "required": ["method","locator","text"],
+        "properties": {
+          "method": {"type":"string","enum":["native","ocr"]},
+          "locator": {"$ref":"#/components/schemas/Locator"},
+          "text": {"type":"string","minLength":1}
+        }
+      },
+      "Warning": {
+        "type": "object",
+        "required": ["code","message","locator"],
+        "properties": {
+          "code": {"type":"string","minLength":1},
+          "message": {"type":"string","minLength":1},
+          "locator": {"$ref":"#/components/schemas/Locator"}
+        }
+      },
+      "ReadResult": {
+        "type": "object",
+        "required": ["documentId","version","readerVersion","fragments","warnings"],
+        "properties": {
+          "documentId": {"type":"string","format":"uuid"},
+          "version": {"type":"string","const":"1"},
+          "readerVersion": {"type":"string","minLength":1},
+          "fragments": {"type":"array","items":{"$ref":"#/components/schemas/Fragment"}},
+          "warnings": {"type":"array","items":{"$ref":"#/components/schemas/Warning"}}
+        },
+        "description": "Technical reading, not an origin claim. Empty fragments are allowed when nothing was readable; include a located warning in that case.",
+        "if": {"properties":{"fragments":{"maxItems":0}}},
+        "then": {"properties":{"warnings":{"minItems":1}}}
+      },
+      "Problem": {
+        "type": "object",
+        "required": ["status","code","title"],
+        "properties": {
+          "status": {"type":"integer","minimum":400,"maximum":599},
+          "code": {"type":"string","minLength":1},
+          "title": {"type":"string","minLength":1}
+        },
+        "description": "Safe Problem Details payload. Branch on HTTP status and code, never on title. Unknown codes must fall back to a generic message."
+      }
+    },
+    "responses": {
+      "InvalidRequest": {
+        "description": "Malformed request, missing/invalid key, or missing, empty or multiple files.",
+        "content": {
+          "application/problem+json": {
+            "schema": {"$ref":"#/components/schemas/Problem"},
+            "examples": {
+              "invalid": {
+                "value": {
+                  "status": 400,
+                  "code": "invalid_request",
+                  "title": "Exactly one non-empty file and a valid Idempotency-Key are required."
+                }
+              }
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Document does not exist.",
+        "content": {
+          "application/problem+json": {
+            "schema": {"$ref":"#/components/schemas/Problem"},
+            "examples": {
+              "missing": {"value":{"status":404,"code":"document_not_found","title":"Document not found."}}
+            }
+          }
+        }
+      },
+      "Unavailable": {
+        "description": "Temporary service or persistence outage. Back off; when retrying an upload keep the same key and bytes.",
+        "content": {
+          "application/problem+json": {
+            "schema": {"$ref":"#/components/schemas/Problem"},
+            "examples": {
+              "unavailable": {
+                "value": {
+                  "status": 503,
+                  "code": "service_unavailable",
+                  "title": "Service temporarily unavailable."
+                }
+              }
+            }
+          }
+        }
+      },
+      "InvalidId": {
+        "description": "The document ID is not a UUID.",
+        "content": {
+          "application/problem+json": {
+            "schema": {"$ref":"#/components/schemas/Problem"},
+            "examples": {
+              "invalidId": {"value":{"status":400,"code":"invalid_document_id","title":"Invalid document ID."}}
+            }
+          }
+        }
+      }
+    }
+  }
+}
