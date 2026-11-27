@@ -1,0 +1,33 @@
+services:
+  postgres:
+    image: postgres:18.4-alpine3.23
+    environment:
+      POSTGRES_DB: documents
+      POSTGRES_USER: documents
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a local database password}
+    volumes:
+      - database:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U documents -d documents"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  api:
+    build:
+      context: .
+      dockerfile: src/HackthonSpurs.Api/Dockerfile
+    environment:
+      ConnectionStrings__Documents: "Host=postgres;Database=documents;Username=documents;Timeout=5;Command Timeout=10"
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set a local database password}
+      Storage__Root: /data/originals
+      Storage__MaxFileBytes: ${UPLOAD_MAX_BYTES:-20971520}
+    ports:
+      - "127.0.0.1:${API_PORT:-5080}:8080"
+    volumes:
+      - originals:/data/originals
+    depends_on:
+      postgres:
+        condition: service_healthy
+volumes:
+  database:
+  originals:

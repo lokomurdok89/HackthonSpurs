@@ -1,5 +1,7 @@
 # HackthonSpurs · Base Architecture for Track 2
 
+> **Design history:** This is the original English proposal from PR #1. For the current implementation and remaining work, use the [maintained architecture](ARCHITECTURE.md). To try the API, follow the [local run guide](../README.md#run-locally).
+
 **Proposal for review · November 27, 2026 · No implementation yet.** The first walkthrough should allow uploading a test file, closing the UI, returning later, and seeing what could be read and **on which page or cell**. Processing completing does not mean the data is true or that the product complies with a standard.
 
 ## 1. Proposed Architecture

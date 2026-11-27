@@ -2,7 +2,7 @@
 
 [OpenAPI contract](openapi.json) · [Architecture and demo walkthrough](../ARCHITECTURE.md)
 
-**Status: contract first.** These three same-origin operations are the UI/backend agreement for the local demo, not deployed endpoints. The examples are invented. The UI needs no database, Worker, OCR credentials or access to the event dataset. The OpenAPI file is the source of truth for field names, casing, media types, examples and errors.
+**Status: locally implemented.** Run the [API and PostgreSQL](../../README.md) or use the invented examples below without any backend. The Worker and OCR are not implemented; live uploads remain queued. No public deployment or access to the event dataset is required. The OpenAPI file is the source of truth for field names, casing, media types, examples and errors.
 
 ## Upload → poll → read
 
@@ -50,4 +50,4 @@ For an HTTP mock, if [Prism](https://github.com/stoplightio/prism/blob/master/do
 
 ## Verification and delivery boundary
 
-Run `pwsh -NoProfile -File tests/contract/Test-DocumentContract.ps1` from the repository root (PowerShell 7.6). It checks the named response examples against their schemas offline, including negative cases. When the API is implemented, run integration tests against a real service for durable acceptance, concurrent replay, status transitions after retry, atomic result publication and terminal errors. Passing example tests alone does not verify any of those runtime guarantees.
+Run `pwsh -NoProfile -File tests/contract/Test-DocumentContract.ps1` from the repository root (PowerShell 7.6). It checks the named response examples against their schemas offline, including negative cases. Run `python -B tests/integration/test_document_api.py` to exercise real HTTP and PostgreSQL: durable acceptance, concurrent replay, persisted state/result reads and terminal errors. Worker transitions and result payloads are seeded privately in the test database; these tests do not certify a running reader or Worker.

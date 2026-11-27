@@ -1,0 +1,6 @@
+# Optional override for Docker hosts with exhausted automatic address pools.
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: ${SPURS_SUBNET:?Choose an unused private subnet for this Compose project}
