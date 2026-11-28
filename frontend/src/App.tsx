@@ -3,6 +3,7 @@ import { AppShell } from "./components/AppShell";
 import { allNav, type RouteId } from "./components/nav";
 import type { CurrentUser } from "./components/UserCard";
 import { demo } from "./data";
+import { DocumentsSearch } from "./pages/DocumentsSearch";
 import { ProductEvidence } from "./pages/ProductEvidence";
 import { ReviewQueue } from "./pages/ReviewQueue";
 
@@ -38,6 +39,8 @@ export default function App() {
         <ProductEvidence product={demo.product} />
       ) : route === "review" ? (
         <ReviewQueue items={demo.review} />
+      ) : route === "documents" ? (
+        <DocumentsSearch />
       ) : (
         <>
           <h1 style={{ margin: "0 0 8px", fontSize: 26 }}>{label}</h1>

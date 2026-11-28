@@ -55,3 +55,34 @@ export const ACCEPTED_TYPES = [
 ] as const;
 
 export const ACCEPT_ATTRIBUTE = ".pdf,.xlsx,.csv";
+
+export interface SearchStats {
+  embeddingsConfigured: boolean;
+  model: string;
+  totalDocuments: number;
+  indexedDocuments: number;
+  totalChunks: number;
+}
+
+export interface SemanticSearchHit {
+  chunkId: Uuid;
+  documentId: Uuid;
+  chunkIndex: number;
+  sourceName?: string | null;
+  locator: string;
+  text: string;
+  model: string;
+  score: number;
+}
+
+export interface SemanticSearchResponse {
+  query: string;
+  model: string;
+  results: SemanticSearchHit[];
+}
+
+export interface IndexDocumentResponse {
+  documentId: Uuid;
+  chunkCount: number;
+  model: string;
+}

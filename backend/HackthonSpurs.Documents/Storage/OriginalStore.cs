@@ -9,6 +9,8 @@ public sealed class UploadTooLargeException : Exception;
 // Paths derive exclusively from server-generated IDs, never from uploaded filenames.
 public sealed class OriginalStore(StorageSettings settings)
 {
+    public string GetOriginalPath(Guid id) => Path.Combine(settings.Root, $"{id:N}.original");
+
     public async Task<StagedFile> StageAsync(Stream source, CancellationToken ct)
     {
         Directory.CreateDirectory(settings.Root);
