@@ -86,9 +86,18 @@ namespace HackthonSpurs.Documents.Persistence.Migrations
                     b.Property<string>("FailureCode")
                         .HasColumnType("text");
 
+                    b.Property<Guid?>("LeaseToken")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("LeaseUntil")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("MediaType")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("NextAttemptAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("OperationKey")
                         .HasColumnType("uuid");

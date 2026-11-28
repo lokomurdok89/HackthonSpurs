@@ -31,6 +31,31 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+  worker:
+    profiles: [synthetic]
+    build:
+      context: .
+      dockerfile: backend/HackthonSpurs.Worker/Dockerfile
+    environment:
+      ConnectionStrings__Documents: "Host=postgres;Database=documents;Username=documents;Timeout=5;Command Timeout=10"
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set a local database password}
+      Storage__Root: /data/originals
+      Reader__Endpoint: http://fixture-reader:8080/internal/read
+    volumes:
+      - originals:/data/originals:ro
+    depends_on:
+      api:
+        condition: service_started
+      fixture-reader:
+        condition: service_started
+  fixture-reader:
+    profiles: [synthetic]
+    build:
+      context: .
+      dockerfile: backend/reader-fixture/Dockerfile
+    read_only: true
+    tmpfs:
+      - /tmp
 volumes:
   database:
   originals:

@@ -1,5 +1,14 @@
 **
 !backend/
-!backend/**
+backend/*
+!backend/HackthonSpurs.Api/
+!backend/HackthonSpurs.Api/**
+!backend/HackthonSpurs.Documents/
+!backend/HackthonSpurs.Documents/**
+!backend/HackthonSpurs.Worker/
+!backend/HackthonSpurs.Worker/**
+!backend/reader-fixture/
+!backend/reader-fixture/**
 **/bin/
 **/obj/
+!backend/NuGet.Config

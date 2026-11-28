@@ -1,4 +1,9 @@
 <Solution>
   <Project Path="HackthonSpurs.Api/HackthonSpurs.Api.csproj" />
   <Project Path="HackthonSpurs.Documents/HackthonSpurs.Documents.csproj" />
+  <Project Path="HackthonSpurs.Worker/HackthonSpurs.Worker.csproj" />
+  <Project Path="reader-fixture/FixtureReader.csproj" />
+  <Folder Name="/tests/">
+    <Project Path="../tests/worker/WorkerContract.Tests.csproj" />
+  </Folder>
 </Solution>
