@@ -1,9 +1,17 @@
 import { useMemo, useState } from "react";
+import { logActivity, useSettings } from "../data/settings";
 import type { ReviewItem } from "../data/types";
 import { FieldRow, type Decision } from "./ReviewField";
 import "./ReviewQueue.css";
 
 type Decisions = Record<string, Decision>;
+
+const ACTION: Record<Decision["status"], string> = {
+  pending: "Undid decision",
+  approved: "Approved value",
+  corrected: "Corrected value",
+  rejected: "Rejected value",
+};
 
 const keyOf = (itemId: string, fieldId: string) => `${itemId}/${fieldId}`;
 
@@ -26,6 +34,7 @@ export function ReviewQueue({ items }: { items: ReviewItem[] }) {
   const [selectedId, setSelectedId] = useState(items[0]?.id);
   const [decisions, setDecisions] = useState<Decisions>({});
   const [hoverField, setHoverField] = useState<string | undefined>();
+  const { autoApproveAt, secondReviewer } = useSettings();
 
   const item = items.find((i) => i.id === selectedId) ?? items[0];
 
@@ -36,28 +45,34 @@ export function ReviewQueue({ items }: { items: ReviewItem[] }) {
 
   const totals = useMemo(() => {
     const all = items.flatMap((it) => it.fields.map((f) => decisions[keyOf(it.id, f.id)]?.status ?? "pending"));
-    return { all: all.length, done: all.filter((s) => s !== "pending").length };
-  }, [items, decisions]);
+    return { all: all.length, done: all.filter((s) => s !== "pending" && !(secondReviewer && s === "corrected")).length };
+  }, [items, decisions, secondReviewer]);
 
   if (!item) {
     return <p className="muted">Nothing is waiting for review.</p>;
   }
 
-  const decide = (fieldId: string, d: Decision) =>
+  const decide = (fieldId: string, d: Decision) => {
+    const f = item.fields.find((x) => x.id === fieldId);
+    logActivity(ACTION[d.status], `${f?.label ?? fieldId} in ${item.file}${d.value ? `, now "${d.value}"` : ""}`);
     setDecisions((prev) => ({ ...prev, [keyOf(item.id, fieldId)]: d }));
+  };
 
-  const approveConfident = () =>
+  const approveConfident = () => {
+    logActivity("Bulk approved", `${confidentPending} values at ${pct}% or higher in ${item.file}`);
     setDecisions((prev) => {
       const next = { ...prev };
       for (const f of item.fields) {
         const k = keyOf(item.id, f.id);
-        if ((next[k]?.status ?? "pending") === "pending" && f.confidence >= 0.95) next[k] = { status: "approved" };
+        if ((next[k]?.status ?? "pending") === "pending" && f.confidence >= autoApproveAt) next[k] = { status: "approved" };
       }
       return next;
     });
+  };
 
+  const pct = Math.round(autoApproveAt * 100);
   const confidentPending = item.fields.filter(
-    (f) => f.confidence >= 0.95 && decisionFor(item.id, f.id).status === "pending",
+    (f) => autoApproveAt > 0 && f.confidence >= autoApproveAt && decisionFor(item.id, f.id).status === "pending",
   ).length;
 
   return (
@@ -142,9 +157,11 @@ export function ReviewQueue({ items }: { items: ReviewItem[] }) {
             <h2 id="fields-title" className="rq__colhead">
               Extracted values
             </h2>
-            <button type="button" className="btn btn--sm" disabled={!confidentPending} onClick={approveConfident}>
-              Approve {confidentPending} at 95%+
-            </button>
+            {autoApproveAt > 0 ? (
+              <button type="button" className="btn btn--sm" disabled={!confidentPending} onClick={approveConfident}>
+                Approve {confidentPending} at {pct}%+
+              </button>
+            ) : null}
           </div>
           <ul className="fields">
             {item.fields.map((f) => (
@@ -155,6 +172,7 @@ export function ReviewQueue({ items }: { items: ReviewItem[] }) {
                 highlighted={hoverField === f.id}
                 onFocus={() => setHoverField(f.id)}
                 onDecide={(d) => decide(f.id, d)}
+                needsSecond={secondReviewer}
               />
             ))}
           </ul>

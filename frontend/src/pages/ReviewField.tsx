@@ -26,12 +26,14 @@ export function FieldRow({
   highlighted,
   onFocus,
   onDecide,
+  needsSecond = false,
 }: {
   field: ExtractedField;
   decision: Decision;
   highlighted: boolean;
   onFocus: () => void;
   onDecide: (d: Decision) => void;
+  needsSecond?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(decision.value ?? field.value);
@@ -104,7 +106,7 @@ export function FieldRow({
           </div>
         ) : (
           <div className="field__actions">
-            <span className={`stamp status status--${decision.status}`}>{STATUS_LABEL[decision.status]}</span>
+            <span className={`stamp status status--${decision.status}`}>{needsSecond && decision.status === "corrected" ? "Corrected, needs second reviewer" : STATUS_LABEL[decision.status]}</span>
             <button type="button" className="btn btn--sm btn--ghost" onClick={() => onDecide({ status: "pending" })}>
               Undo
             </button>

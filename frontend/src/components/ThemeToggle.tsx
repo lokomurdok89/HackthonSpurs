@@ -1,46 +1,17 @@
-import { useEffect, useState } from "react";
+import { updateSettings, useResolvedTheme } from "../data/settings";
 import { MoonIcon, SunIcon } from "./icons";
 
-type Theme = "light" | "dark";
-const KEY = "origin-vault-theme";
-
-function systemTheme(): Theme {
-  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-}
-
-function storedTheme(): Theme | null {
-  try {
-    const v = localStorage.getItem(KEY);
-    return v === "light" || v === "dark" ? v : null;
-  } catch {
-    return null;
-  }
-}
-
-/** Switches between light and dark. Until the user picks, the app follows the system setting. */
+/** Quick light and dark switch. Settings, Appearance also offers "Match my system". */
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<Theme>(() => storedTheme() ?? systemTheme());
-
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-  }, [theme]);
-
-  const next: Theme = theme === "dark" ? "light" : "dark";
-
+  const theme = useResolvedTheme();
+  const next = theme === "dark" ? "light" : "dark";
   return (
     <button
       type="button"
       className="icon-btn"
       aria-label={`Switch to ${next} theme`}
       title={`Switch to ${next} theme`}
-      onClick={() => {
-        setTheme(next);
-        try {
-          localStorage.setItem(KEY, next);
-        } catch {
-          // Storage can be blocked; the choice then lasts for this visit only.
-        }
-      }}
+      onClick={() => updateSettings({ theme: next }, `Theme set to ${next}`)}
     >
       {theme === "dark" ? <SunIcon /> : <MoonIcon />}
     </button>

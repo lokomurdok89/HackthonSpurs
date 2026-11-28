@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { logActivity, useSettings } from "../data/settings";
 import { QRCodeSVG } from "qrcode.react";
 import type { Passport, PassportField } from "../data/types";
 import { PassportView } from "../components/PassportView";
@@ -26,10 +27,16 @@ export function publicPassportUrl(productId: string, sharedIdx: number[], lots: 
 }
 
 export function Passports({ passport }: { passport: Passport }) {
+  const { defaultShared, defaultShowLots } = useSettings();
   const [shared, setShared] = useState<Set<string>>(
-    () => new Set(passport.fields.filter((f) => shareable(f)).map((f) => f.label)),
+    () =>
+      new Set(
+        passport.fields
+          .filter((f) => shareable(f) && (defaultShared === null || defaultShared.includes(f.label)))
+          .map((f) => f.label),
+      ),
   );
-  const [showLots, setShowLots] = useState(true);
+  const [showLots, setShowLots] = useState(defaultShowLots);
   const [copied, setCopied] = useState(false);
 
   const counts = useMemo(() => {
@@ -51,6 +58,7 @@ export function Passports({ passport }: { passport: Passport }) {
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(url);
+      logActivity("Copied passport link", `${passport.productId}, ${sharedIdx.length} fields shared`);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
