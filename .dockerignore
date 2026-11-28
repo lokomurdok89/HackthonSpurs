@@ -7,8 +7,8 @@ backend/*
 !backend/HackthonSpurs.Application/**
 !backend/HackthonSpurs.Api/
 !backend/HackthonSpurs.Api/**
-!backend/HackthonSpurs.Documents/
-!backend/HackthonSpurs.Documents/**
+!backend/HackthonSpurs.Persistence/
+!backend/HackthonSpurs.Persistence/**
 !backend/HackthonSpurs.Worker/
 !backend/HackthonSpurs.Worker/**
 !backend/HackthonSpurs.Ocr.Bilevel/

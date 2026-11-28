@@ -34,6 +34,9 @@ foreach ($file in $files) {
                 throw "Expected one application type per file named after its declaration: ${file}."
             }
             $area = $file.Split('/')[2]
+            if ($ports.Count -and $file -cne "backend/HackthonSpurs.Application/$area/Contracts/$name.cs") {
+                throw "Keep application interfaces directly in their owning feature's Contracts folder: $file."
+            }
             if ($top[0].Parent.Name.ToString() -cne "HackthonSpurs.Application.$area") {
                 throw "Keep the application type in its owning feature namespace: ${file}."
             }

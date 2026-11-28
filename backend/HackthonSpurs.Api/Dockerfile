@@ -5,12 +5,12 @@ COPY backend/HackthonSpurs.Resources/ backend/HackthonSpurs.Resources/
 COPY backend/HackthonSpurs.Domain/*.csproj backend/HackthonSpurs.Domain/
 COPY backend/HackthonSpurs.Application/*.csproj backend/HackthonSpurs.Application/
 COPY backend/HackthonSpurs.Api/*.csproj backend/HackthonSpurs.Api/
-COPY backend/HackthonSpurs.Documents/*.csproj backend/HackthonSpurs.Documents/
+COPY backend/HackthonSpurs.Persistence/*.csproj backend/HackthonSpurs.Persistence/
 RUN dotnet restore backend/HackthonSpurs.Api
 COPY backend/HackthonSpurs.Domain/ backend/HackthonSpurs.Domain/
 COPY backend/HackthonSpurs.Application/ backend/HackthonSpurs.Application/
 COPY backend/HackthonSpurs.Api/ backend/HackthonSpurs.Api/
-COPY backend/HackthonSpurs.Documents/ backend/HackthonSpurs.Documents/
+COPY backend/HackthonSpurs.Persistence/ backend/HackthonSpurs.Persistence/
 RUN dotnet publish backend/HackthonSpurs.Api -c Release --no-restore -o /publish
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0.11

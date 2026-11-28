@@ -3,7 +3,7 @@
   <Project Path="HackthonSpurs.Application/HackthonSpurs.Application.csproj" />
   <Project Path="HackthonSpurs.Resources/HackthonSpurs.Resources.csproj" />
   <Project Path="HackthonSpurs.Api/HackthonSpurs.Api.csproj" />
-  <Project Path="HackthonSpurs.Documents/HackthonSpurs.Documents.csproj" />
+  <Project Path="HackthonSpurs.Persistence/HackthonSpurs.Persistence.csproj" />
   <Project Path="HackthonSpurs.Worker/HackthonSpurs.Worker.csproj" />
   <Project Path="HackthonSpurs.Ocr.Bilevel/HackthonSpurs.Ocr.Bilevel.csproj" />
   <Project Path="HackthonSpurs.Reader.Fixture/HackthonSpurs.Reader.Fixture.csproj" />

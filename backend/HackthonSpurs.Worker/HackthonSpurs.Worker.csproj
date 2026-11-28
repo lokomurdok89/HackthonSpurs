@@ -6,7 +6,7 @@
   <ItemGroup>
     <InternalsVisibleTo Include="WorkerContract.Tests" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
-    <ProjectReference Include="../HackthonSpurs.Documents/HackthonSpurs.Documents.csproj" />
+    <ProjectReference Include="../HackthonSpurs.Persistence/HackthonSpurs.Persistence.csproj" />
     <EmbeddedResource Include="../HackthonSpurs.Reader.Fixture/worker-demo.csv" LogicalName="worker-demo.csv" />
   </ItemGroup>
   <ItemGroup>

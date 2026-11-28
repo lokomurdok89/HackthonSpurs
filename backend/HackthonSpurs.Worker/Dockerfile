@@ -5,7 +5,7 @@ COPY backend/HackthonSpurs.Resources/ backend/HackthonSpurs.Resources/
 COPY backend/HackthonSpurs.Domain/ backend/HackthonSpurs.Domain/
 COPY backend/HackthonSpurs.Application/ backend/HackthonSpurs.Application/
 COPY backend/HackthonSpurs.Worker/ backend/HackthonSpurs.Worker/
-COPY backend/HackthonSpurs.Documents/ backend/HackthonSpurs.Documents/
+COPY backend/HackthonSpurs.Persistence/ backend/HackthonSpurs.Persistence/
 COPY backend/HackthonSpurs.Reader.Fixture/worker-demo.csv backend/HackthonSpurs.Reader.Fixture/
 RUN dotnet publish backend/HackthonSpurs.Worker -c Release -o /publish
 

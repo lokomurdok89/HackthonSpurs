@@ -1,5 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <!-- Preserve published CLR identities and the namespace used when scaffolding migrations. -->
+    <AssemblyName>HackthonSpurs.Documents</AssemblyName>
+    <RootNamespace>HackthonSpurs.Documents.Persistence</RootNamespace>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>

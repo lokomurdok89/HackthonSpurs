@@ -7,9 +7,9 @@ BACKEND = Path(__file__).resolve().parents[2] / "backend"
 PREFIX = "HackthonSpurs."
 # These are allowed reference edges, not a requirement to reference an unused project.
 ALLOWED = {
-    "Api": {"Application", "Domain", "Documents", "Resources"},
-    "Worker": {"Application", "Documents", "Resources"},
-    "Documents": {"Application", "Domain", "Resources"},
+    "Api": {"Application", "Domain", "Persistence", "Resources"},
+    "Worker": {"Application", "Persistence", "Resources"},
+    "Persistence": {"Application", "Domain", "Resources"},
     "Application": {"Domain", "Resources"},
     "Domain": set(),
     "Resources": set(),
@@ -36,9 +36,18 @@ class BackendBoundaries(unittest.TestCase):
         for proj in self.projects:
             self.assertEqual(proj.parent.name, proj.stem)
 
-    def test_host_and_document_roots_are_not_feature_folders(self):
+    def test_persistence_project_preserves_ef_identity(self):
+        """Keep migration discovery compatible while the project and its database folders use the new name."""
+        project = BACKEND / (PREFIX + "Persistence")
+        xml = ElementTree.parse(project / (project.name + ".csproj"))
+        self.assertEqual(xml.findtext(".//AssemblyName"), PREFIX + "Documents")
+        self.assertEqual(xml.findtext(".//RootNamespace"), PREFIX + "Documents.Persistence")
+        self.assertTrue((project / "Migrations" / "DocumentsDbModelSnapshot.cs").is_file())
+        self.assertTrue((project / "Database" / "DocumentsDb.cs").is_file())
+
+    def test_host_and_persistence_roots_are_not_feature_folders(self):
         """Keep endpoint, queue and entity implementations out of the multi-feature project roots."""
-        for suffix in ("Api", "Documents", "Worker", "Reader.Spur", "Application", "Domain"):
+        for suffix in ("Api", "Persistence", "Worker", "Reader.Spur", "Application", "Domain"):
             project = BACKEND / (PREFIX + suffix)
             startup_files = {"GlobalUsings.cs", "AssemblyInfo.cs"}
             if suffix in ("Api", "Worker", "Reader.Spur"):
@@ -87,7 +96,7 @@ class BackendBoundaries(unittest.TestCase):
         for path in [*endpoints.joinpath("Documents").glob("**/*.cs"), *endpoints.joinpath("Search").glob("**/*.cs")]:
             text = path.read_text(encoding="utf-8")
             code = "\n".join(line for line in text.splitlines() if not line.lstrip().startswith("//"))
-            self.assertNotRegex(code, r"\b(?:HackthonSpurs\.Documents|Microsoft\.EntityFrameworkCore|Npgsql|Pgvector)\b",
+            self.assertNotRegex(code, r"\b(?:HackthonSpurs\.(?:Documents|Persistence)|Microsoft\.EntityFrameworkCore|Npgsql|Pgvector)\b",
                                 f"{path.name} should depend on use cases/read ports, not database or storage adapters")
 
     def test_references_and_native_ocr_boundary(self):
