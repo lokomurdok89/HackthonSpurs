@@ -62,3 +62,26 @@ if (SpurResult.Validate(System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(emp
 Console.WriteLine("PASS: matching SPUR page, plain text, bounded projection and located empty warning.");
 await EmbeddingReview.RunAsync();
 await ReaderProblemChecks.RunAsync();
+
+var repeated = SpurResult.MergeBands([pageGood.Json!, pageGood.Json!], id, 1);
+using (var merged = System.Text.Json.JsonDocument.Parse(repeated.Json!))
+{
+    var fragments = merged.RootElement.GetProperty("fragments");
+    var source = pageResult.fragments[0].text;
+    if (fragments.GetArrayLength() != 1 || fragments[0].GetProperty("text").GetString() != source + "\n" + source)
+        throw new Exception("Repeated evidence or original page grouping lost.");
+}
+var blank = SpurResult.Validate(System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(empty), id).Json!;
+if (SpurResult.MergeBands([blank, pageGood.Json!], id, 1).Json != null ||
+    SpurResult.MergeBands([blank, blank], id, 1).Json != blank ||
+    SpurResult.MergeBands([pageGood.Json!, pageGood.Json!.Replace("spur/1:offline", "spur/1:other")], id, 1).Json != null)
+    throw new Exception("Unsafe partial, blank or mixed-version band assembly.");
+Console.WriteLine("PASS: band assembly, repeated rows, all blank, partial and mixed-version rejection.");
+
+var boundaryImage = new byte[79999];
+var wireSize = HackthonSpurs.Resources.SpurPayload.Encode("test", boundaryImage, "image/png").Length;
+var planner = new BandPlanner(HackthonSpurs.Resources.OcrBudgets.ImageTarget("90000"), wireSize, "test");
+if (!planner.Fits(boundaryImage, "image/png") || planner.Fits(new byte[80000], "image/png") ||
+    new BandPlanner(79999, wireSize - 1, "test").Fits(boundaryImage, "image/png"))
+    throw new Exception("Worker did not enforce strict image size and independent exact wire size.");
+Console.WriteLine("PASS: inclusive 79999 image limit, legacy setting clamp and independent JSON preflight.");

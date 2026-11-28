@@ -39,6 +39,10 @@ builder.Services.AddSingleton(_ => new HttpClient(new SocketsHttpHandler
     UseCookies = false
 })
 { Timeout = TimeSpan.FromSeconds(Policy.ReaderSeconds), MaxResponseContentBufferSize = spur ? Policy.MaxPageReply : Policy.MaxFixtureReply });
-builder.Services.AddSingleton(sp => new ReaderClient(sp.GetRequiredService<HttpClient>(), endpoint, root));
+var target = spur ? OcrBudgets.ImageTarget(config[SettingNames.OcrImageTarget]) : Policy.MaxFixtureBytes;
+var bands = new BandPlanner(target, OcrBudgets.JsonLimit(config[SettingNames.OcrJsonLimit]),
+    config[SettingNames.VisionModelEnv] ?? (spur ? throw new InvalidOperationException(ResourceText.InvalidVisionModel) : string.Empty),
+    config.GetValue(SettingNames.OcrAdaptiveMonochrome, true));
+builder.Services.AddSingleton(sp => new ReaderClient(sp.GetRequiredService<HttpClient>(), endpoint, root, bands));
 builder.Services.AddHostedService<DocumentWorker>();
 await builder.Build().RunAsync();

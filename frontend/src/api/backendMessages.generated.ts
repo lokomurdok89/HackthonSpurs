@@ -52,5 +52,7 @@ export const backendMessages: ReadonlyMap<string, string> = new Map([
   ["fixture_mismatch", "The supplied bytes do not match the synthetic fixture."],
   ["invalid_fixture_request", "The synthetic reader request headers are invalid."],
   ["unsupported_fixture", "The synthetic reader requires its allowlisted CSV fixture."],
+  ["ocr_page_over_budget", "This page could not be prepared within the OCR image budget. No request was sent for this page."],
+  ["ocr_json_over_budget", "The serialized OCR request exceeds the configured JSON budget. This page was not sent."],
 ]);
 export const unknownProblem = "Something went wrong. Try again in a moment.";

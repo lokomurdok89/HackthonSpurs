@@ -24,6 +24,10 @@ services:
       ConnectionStrings__Documents: "Host=postgres;Database=documents;Username=documents;Timeout=5;Command Timeout=10"
       PGPASSWORD: ${POSTGRES_PASSWORD:?Set a local database password}
       Storage__Root: /data/originals
+      SPUR_OCR_IMAGE_TARGET_BYTES: "${SPUR_OCR_IMAGE_TARGET_BYTES:-79999}"
+      SPUR_OCR_MAX_JSON_BYTES: "${SPUR_OCR_MAX_JSON_BYTES:-128000}"
+      SPUR_OCR_MODEL: ${SPUR_OCR_MODEL:?Set the SPUR vision model ID}
+      SPUR_OCR_ADAPTIVE_MONOCHROME: "${SPUR_OCR_ADAPTIVE_MONOCHROME:-true}"
       Reader__Endpoint: http://spur-reader:8080/internal/read
     volumes:
       - originals:/data/originals:ro
@@ -51,6 +55,8 @@ services:
       context: .
       dockerfile: backend/reader-spur/Dockerfile
     environment:
+      SPUR_OCR_IMAGE_TARGET_BYTES: "${SPUR_OCR_IMAGE_TARGET_BYTES:-79999}"
+      SPUR_OCR_MAX_JSON_BYTES: "${SPUR_OCR_MAX_JSON_BYTES:-128000}"
       SPUR_OCR_ENDPOINT: ${SPUR_OCR_ENDPOINT:?Set the SPUR chat completions URL}
       SPUR_OCR_MODEL: ${SPUR_OCR_MODEL:?Set the SPUR vision model ID}
       SPUR_API_KEY: ${SPUR_API_KEY:?Set the private SPUR API key}

@@ -1,6 +1,9 @@
 """Small invented, printable multi-format documents for the private reader test."""
 import io
 import zipfile
+import random
+import struct
+import zlib
 
 
 def pdf(count):
@@ -67,3 +70,31 @@ def office(ext):
                          '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
                          f'<Default Extension="xml" ContentType="application/xml"/>{override}</Types>')
     return ext, mime, buffer.getvalue(), 1
+
+
+def budget_png(noisy):
+    """Encode invented RGB rows without compression; noisy pixels cannot compress below 90,000 bytes."""
+    width, height = 240, 160
+    rng = random.Random(184)
+    rows = [rng.randbytes(width * 3) if noisy else bytes([25, 130, 220, 70, 25, 155]) * (width // 2)
+            for _ in range(height)]
+    def chunk(tag, value):
+        """Wrap a PNG tag and value with their length and CRC."""
+        return struct.pack(">I", len(value)) + tag + value + struct.pack(">I", zlib.crc32(tag + value))
+    return (bytes.fromhex("89504e470d0a1a0a") + chunk(b"IHDR", struct.pack(">2I5B", width, height, 8, 2, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(b"".join(bytes(1) + row for row in rows), 0)) + chunk(b"IEND", b""))
+
+
+def grayscale_sheet():
+    """Render a deterministic bright paper texture with dark marks; lossless PNG exceeds the OCR budget."""
+    width, height = 750, 420
+    rng = random.Random(125)
+    rows = [bytes(0 if y % 35 < 9 and 48 < x < 660 and x % 32 < 10 else rng.randrange(215, 256)
+                  for x in range(width)) for y in range(height)]
+
+    def chunk(kind, payload):
+        """Encode a PNG kind and payload with its length and checksum."""
+        return struct.pack(">I", len(payload)) + kind + payload + struct.pack(">I", zlib.crc32(kind + payload))
+
+    return (bytes.fromhex("89504e470d0a1a0a") + chunk(b"IHDR", struct.pack(">2I5B", width, height, 8, 0, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(b"".join(bytes(1) + row for row in rows))) + chunk(b"IEND", b""))

@@ -9,6 +9,8 @@ internal sealed class SpurSettings
     /// <summary>Construct settings only through the validated environment factory.</summary>
     private SpurSettings() { }
 
+    public required int ImageTarget { get; init; }
+    public required int JsonLimit { get; init; }
     public required Uri Endpoint { get; init; }
     public required string Model { get; init; }
     public required AuthenticationHeaderValue Authorization { get; init; }
@@ -36,6 +38,11 @@ internal sealed class SpurSettings
         var key = Required(SettingNames.ApiKeyEnv);
         if (key.Any(c => c < '!' || c > '~'))
             throw new InvalidOperationException(ResourceText.InvalidApiKey);
-        return new() { Endpoint = uri, Model = model, Authorization = new(Wire.Bearer, key) };
+        return new()
+        {
+            Endpoint = uri, Model = model, Authorization = new(Wire.Bearer, key),
+            ImageTarget = OcrBudgets.ImageTarget(read(SettingNames.OcrImageTarget)),
+            JsonLimit = OcrBudgets.JsonLimit(read(SettingNames.OcrJsonLimit))
+        };
     }
 }

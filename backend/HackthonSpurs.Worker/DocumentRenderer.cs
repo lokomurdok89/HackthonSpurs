@@ -41,10 +41,10 @@ internal static class DocumentRenderer
             throw new RenderFailure(Errors.DocumentNotRenderable.Code);
         if (count > OcrFormats.MaxPages) throw new RenderFailure(Errors.TooManyPages.Code);
         var prefix = Path.Combine(dir, RenderSettings.PageStem);
-        await RunAsync(RenderSettings.RasterTool, [RenderSettings.JpegFlag, RenderSettings.ScaleFlag, RenderSettings.RasterScale, pdf, prefix], dir, ct);
+        await RunAsync(RenderSettings.RasterTool, [RenderSettings.PngFlag, RenderSettings.ScaleFlag, RenderSettings.RasterScale, pdf, prefix], dir, ct);
         var paths = Directory.GetFiles(dir, RenderSettings.RasterFiles)
             .OrderBy(path => int.Parse(Path.GetFileNameWithoutExtension(path)[(RenderSettings.PageStem.Length + 1)..], CultureInfo.InvariantCulture)).ToArray();
-        if (paths.Length != count || paths.Any(path => new FileInfo(path).Length is <= 0 or > OcrFormats.MaxImageBytes))
+        if (paths.Length != count || paths.Any(path => new FileInfo(path).Length <= 0))
             throw new RenderFailure(Errors.DocumentNotRenderable.Code);
         return paths;
     }
@@ -54,7 +54,7 @@ internal static class DocumentRenderer
     /// <param name="args">Arguments constructed by the renderer.</param>
     /// <param name="dir">Job-local home, temp and working directory.</param>
     /// <param name="ct">Cancellation that terminates the process tree.</param>
-    private static async Task<string> RunAsync(string tool, List<string> args, string dir, CancellationToken ct)
+    internal static async Task<string> RunAsync(string tool, List<string> args, string dir, CancellationToken ct)
     {
         var start = new ProcessStartInfo(tool)
         {

@@ -14,14 +14,15 @@ var env = new Dictionary<string, string>
     ["SPUR_OCR_MODEL"] = "test-vision-alias"
 };
 foreach (var name in env.Keys)
-    Reject(() => SpurSettings.FromEnvironment(k => k == name ? " " : env[k]));
+    Reject(() => SpurSettings.FromEnvironment(k => k == name ? " " : env.GetValueOrDefault(k)));
 foreach (var bad in new[] { "http://ai.spuric.com/v1/chat/completions", "https://example.invalid/v1/chat/completions",
     endpoint + "?key=x", endpoint + "#fragment", endpoint.Replace("//", "//user@") })
-    Reject(() => SpurSettings.FromEnvironment(k => k == "SPUR_OCR_ENDPOINT" ? bad : env[k]));
-Reject(() => SpurSettings.FromEnvironment(k => k == "SPUR_API_KEY" ? "abc\nprivate" : env[k]));
-var settings = SpurSettings.FromEnvironment(k => env[k]);
+    Reject(() => SpurSettings.FromEnvironment(k => k == "SPUR_OCR_ENDPOINT" ? bad : env.GetValueOrDefault(k)));
+Reject(() => SpurSettings.FromEnvironment(k => k == "SPUR_API_KEY" ? "abc\nprivate" : env.GetValueOrDefault(k)));
+var settings = SpurSettings.FromEnvironment(k => env.GetValueOrDefault(k));
 var bytes = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/k2kAAAAASUVORK5CYII=");
 var doc = Guid.NewGuid();
+await PayloadChecks.VerifyAsync(env, bytes);
 var fake = new FakeGateway();
 using var http = new HttpClient(fake) { MaxResponseContentBufferSize = 128 * 1024 };
 var client = new SpurVisionClient(http, settings);

@@ -15,7 +15,8 @@ internal sealed record ReadOutcome(string? Json = null, string? Error = null, bo
 /// <param name="http">Configured transport.</param>
 /// <param name="endpoint">Private reader endpoint.</param>
 /// <param name="root">Private originals directory.</param>
-internal sealed class ReaderClient(HttpClient http, Uri endpoint, string root)
+/// <param name="bands">Local image and wire budget planner.</param>
+internal sealed class ReaderClient(HttpClient http, Uri endpoint, string root, BandPlanner bands)
 {
     /// <summary>Verify the original, call the bounded reader and validate its response.</summary>
     /// <param name="job">Claim authorizing this attempt.</param>
@@ -37,7 +38,7 @@ internal sealed class ReaderClient(HttpClient http, Uri endpoint, string root)
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         { return new(Error: Errors.OriginalUnavailable.Code, Retryable: true); }
 
-        if (!spur || job.MediaType is Media.Png or Media.Jpeg)
+        if (!spur || (job.MediaType is Media.Png or Media.Jpeg && bands.Fits(bytes, job.MediaType)))
             return await SendAsync(job.Id, bytes, job.MediaType, spur ? 1 : 0, stopping);
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(stopping);
         deadline.CancelAfter(TimeSpan.FromMinutes(Policy.DocumentMinutes));
@@ -46,14 +47,26 @@ internal sealed class ReaderClient(HttpClient http, Uri endpoint, string root)
             var dir = Directory.CreateTempSubdirectory(RenderSettings.TempPrefix);
             try
             {
-                var pages = await DocumentRenderer.RenderAsync(bytes, job.MediaType, dir.FullName, deadline.Token);
+                bool direct = job.MediaType is Media.Png or Media.Jpeg;
+                var media = direct ? job.MediaType : Media.Png;
+                var pages = direct
+                    ? new[] { await LosslessPages.StageAsync(bytes, media, dir.FullName, deadline.Token) }
+                    : await DocumentRenderer.RenderAsync(bytes, media: job.MediaType, dir.FullName, deadline.Token);
+                var plan = await bands.PrepareAsync(pages, media, dir.FullName, deadline.Token);
                 var results = new List<string>();
-                for (int i = 0; i < pages.Length; i++)
+                foreach (var page in plan.GroupBy(part => part.Page))
                 {
-                    var jpeg = await File.ReadAllBytesAsync(pages[i], deadline.Token);
-                    var reading = await SendAsync(job.Id, jpeg, Media.Jpeg, i + 1, deadline.Token);
-                    if (reading.Json is null) return reading;
-                    results.Add(reading.Json);
+                    var readings = new List<string>();
+                    foreach (var part in page)
+                    {
+                        var prepared = await File.ReadAllBytesAsync(part.Path, deadline.Token);
+                        var reading = await SendAsync(job.Id, prepared, part.Media, page.Key, deadline.Token);
+                        if (reading.Json is null) return reading;
+                        readings.Add(reading.Json);
+                    }
+                    var merged = SpurResult.MergeBands(readings, job.Id, page.Key);
+                    if (merged.Json is null) return merged;
+                    results.Add(merged.Json);
                 }
                 return SpurResult.Combine(results, job.Id);
             }

@@ -8,7 +8,7 @@ from playwright.sync_api import expect
 import test_document_ui as ui
 import test_document_api as api
 from ocr_stub import TEXT
-from printed_fixtures import pdf, office
+from printed_fixtures import pdf, office, budget_png, grayscale_sheet
 from test_document_worker import wait_state
 
 PNG = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9WHcuU8AAAAASUVORK5CYII=")
@@ -23,7 +23,7 @@ class ImageTranscript(ui.DocumentBrowser):
         cls.addClassCleanup(api.ENV.clear)
         api.ENV.update(COMPOSE_FILE=os.pathsep.join([api.ENV.get("COMPOSE_FILE", "compose.yaml"),
                        "compose.spur.yaml", "tests/integration/compose.ocr-test.yaml"]),
-                       SPUR_API_KEY="unused-test-only", SPUR_OCR_MODEL="offline-test",
+                       UPLOAD_MAX_BYTES="1048576", SPUR_API_KEY="unused-test-only", SPUR_OCR_MODEL="offline-test",
                        SPUR_OCR_ENDPOINT="https://unused.invalid")
         super().setUpClass()
 
@@ -62,6 +62,37 @@ class ImageTranscript(ui.DocumentBrowser):
         self.assertEqual(send(str(uuid.uuid4()), False)[0], 415)
         body, mime = api.form([("file", "lie.png", "image/png", api.PDF)])
         self.assertEqual(send(str(uuid.uuid4()), True)[0], 415)
+
+    def test_lossless_image_budget(self):
+        """Compress a large exact-color PNG or fail the irreducible image before calling the private reader."""
+        for noisy in (False, True):
+            with self.subTest(noisy=noisy):
+                data = budget_png(noisy)
+                self.assertGreater(len(data), 90000)
+                body, mime = api.form([("file", "budget.png", "image/png", data)])
+                rc, _, receipt = api.DocumentsAPI.http("/api/documents", body, {"Content-Type": mime,
+                    "Idempotency-Key": str(uuid.uuid4()), "X-OCR-Provider": "spur"})
+                self.assertEqual(rc, 202)
+                doc = receipt["id"]
+                status = wait_state(doc, "Failed" if noisy else "Completed", 1, 30)
+                if noisy:
+                    self.assertEqual(status["failureCode"], "ocr_page_over_budget")
+                    self.assertNotIn(doc, api.compose("logs", "spur-reader", capture=True))
+                else:
+                    self.assertIn(doc, api.compose("logs", "spur-reader", capture=True))
+
+    def test_adaptive_grayscale_page(self):
+        """Require one metadata-free, native-resolution 1-bit PNG for a large monochrome sheet."""
+        data = grayscale_sheet()
+        self.assertGreater(len(data), 79999)
+        body, mime = api.form([("file", "paper.png", "image/png", data)])
+        rc, _, receipt = api.DocumentsAPI.http("/api/documents", body, {"Content-Type": mime,
+            "Idempotency-Key": str(uuid.uuid4()), "X-OCR-Provider": "spur"})
+        self.assertEqual(rc, 202)
+        doc = receipt["id"]
+        wait_state(doc, "Completed", 1, 30)
+        result = api.DocumentsAPI.http(f"/api/documents/{doc}/result")[2]
+        self.assertEqual([f["text"] for f in result["fragments"]], ["Bilevel sheet"])
 
     def test_printed_document_formats(self):
         """Pass real printable files through admission, conversion, page reading and persistence."""

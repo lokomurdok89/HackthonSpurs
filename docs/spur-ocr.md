@@ -20,20 +20,33 @@ docker compose -f compose.yaml -f compose.spur.yaml up --build -d api spur-reade
 
 Startup does not submit any files. If previously submitted OCR jobs are already queued, the Worker will resume them. Previously queued index jobs also resume; completed readings with no job are not backfilled. For OCR without embeddings, set `SPUR_EMBEDDINGS_ENABLED=false` and omit `spur-index-worker`. Missing required configuration fails closed. Never print the resolved Compose environment with a real key. For Docker hosts requiring a subnet override, include the repository's `compose.subnet.yaml` as an additional file and use the configured local subnet.
 
+## OCR preparation limits
+
+The optional Worker leaves fitting images unchanged. It renders PDFs as PNGs and
+prepares every page before sending the first one. Each image must fit both
+`SPUR_OCR_IMAGE_TARGET_BYTES` (inclusive maximum 79,999 bytes) and
+`SPUR_OCR_MAX_JSON_BYTES` (default 128,000 bytes for the exact UTF-8 envelope).
+After lossless optimization, oversized opaque grayscale pages may be converted
+to a 1-bit PNG with Magick.NET (25×25 adaptive threshold, offset −28).
+This derivative can lose faint text. Set `SPUR_OCR_ADAPTIVE_MONOCHROME=false`
+to disable it. Color pages and over-budget or blank candidates fall back to
+lossless horizontal bands of the source raster. If no safe cut fits, preflight
+fails locally. Partial readings are not published. Originals remain untouched.
+
 ## Send a document to OCR
 
 Start the frontend with `npm --prefix frontend run dev:api` and open [Documents](http://127.0.0.1:5173/#/documents). Select a file and click **Send to OCR**. There is no checkbox; selecting a file sends nothing. **Upload document locally** remains available for PDF/XLSX/CSV without sending anything to SPUR.
 
 | Original | What SPUR receives |
 |---|---|
-| PNG or JPEG (up to 4 MiB) | The original image as page 1. |
-| PDF (including scans) | One JPEG per PDF page, in order. |
+| PNG or JPEG (up to 4 MiB) | Page 1, unchanged if it fits; otherwise prepared as above. |
+| PDF (including scans) | One PNG per page or ordered bands, at the 1800-pixel render scale. |
 | Word DOCX, Excel XLSX, PowerPoint PPTX | Printable pages produced by LibreOffice. These are page locators, not worksheet cell references. |
 | UTF-8 TXT or CSV | Printed pages of literal text, not evaluated formulas. |
 
 Documents are limited to 20 MiB (or the upload limit if smaller) and 20 printed pages. For legacy, encrypted or unrecognized formats, export an unlocked PDF. Split longer documents before submitting. Hidden sheets, attachments and other non-printable content are not transcribed. Each returned transcript or blank-reading warning is tied to its page. Reopening a receipt does not call SPUR.
 
-The form sets `X-OCR-Provider: spur` for OCR. The database stores that choice separately from the file type. Existing image jobs retain their route; previously queued local documents are not sent. The same key, bytes and mode replay the receipt. Only the optional Worker image contains LibreOffice and Poppler. It verifies the original hash, preflights all pages in temporary storage and sends one page per request. A document has one attempt, a five-minute conversion/reading deadline and a six-minute lease. A later page failure marks the job failed; partial text is not published and already-billed pages are not automatically resent.
+The form sets `X-OCR-Provider: spur` for OCR. The database stores that choice separately from the file type. Existing image jobs retain their route; previously queued local documents are not sent. The same key, bytes and mode replay the receipt. Only the optional Worker image contains LibreOffice and Poppler. It verifies the original hash, preflights all pages in temporary storage and sends one image per request. A document has one attempt, a five-minute conversion/reading deadline and a six-minute lease. A later page failure marks the job failed; partial text is not published and already-billed pages are not automatically resent.
 
 ## One page per call
 

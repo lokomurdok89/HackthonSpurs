@@ -43,6 +43,26 @@ internal static class SpurResult
         { return Invalid(); }
     }
 
+    /// <summary>Join validated bands for page of id without deduplicating repeated rows or publishing partial evidence.</summary>
+    internal static ReadOutcome MergeBands(List<string> readings, Guid id, int page)
+    {
+        if (readings.Count == 1) return new(Json: readings[0]);
+        var combined = Combine(readings, id);
+        if (combined.Json is null) return combined;
+        using var doc = JsonDocument.Parse(combined.Json);
+        var root = doc.RootElement;
+        var fragments = root.GetProperty(WireFields.Fragments);
+        if (fragments.GetArrayLength() == 0) return new(Json: readings[0]);
+        if (root.GetProperty(WireFields.Warnings).GetArrayLength() != 0)
+            return new(Error: Errors.NoReadableText.Code);
+        var text = string.Join('\n', fragments.EnumerateArray().Select(f => f.GetProperty(WireFields.Text).GetString()));
+        if (text.Length > Policy.MaxTranscriptLength) return Invalid();
+        var fragment = new { method = Wire.Ocr, locator = new { kind = Wire.Page, page }, text };
+        return new(Json: JsonSerializer.Serialize(new { documentId = id, version = Wire.Version,
+            readerVersion = root.GetProperty(WireFields.ReaderVersion).GetString(),
+            fragments = new[] { fragment }, warnings = Array.Empty<object>() }));
+    }
+
     /// <summary>Publish a complete ordered reading; refuse mixed reader versions.</summary>
     /// <param name="results">Locally validated page readings, in page order.</param>
     /// <param name="id">Document identifier common to every page.</param>

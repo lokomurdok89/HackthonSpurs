@@ -16,9 +16,19 @@ class Stub(BaseHTTPRequestHandler):
         png = self.headers["Content-Type"] == "image/png"
         assert png or self.headers["Content-Type"] == "image/jpeg"
         assert image.startswith(bytes.fromhex("89504e470d0a1a0a" if png else "ffd8ff"))
+        assert len(image) < 80000
+        print(self.headers["X-Document-Id"], flush=True)  # Only synthetic receipt IDs, never payloads.
         loc = {"kind": "page", "page": page}
         result = {"documentId": self.headers["X-Document-Id"], "version": "1", "readerVersion": "spur/1:offline-test",
-                  "fragments": [{"method": "ocr", "locator": loc, "text": TEXT if png else f"Rendered page {page}"}], "warnings": []}
+                  "fragments": [{"method": "ocr", "locator": loc, "text": f"Rendered page {page}" if png and image[16:24] != bytes.fromhex("0000000100000001") else TEXT}], "warnings": []}
+        if png and int.from_bytes(image[16:20], "big") == 750:
+            assert int.from_bytes(image[20:24], "big") == 420 and image[24:26] == bytes([1, 0])
+            offset, chunks = 8, []
+            while offset < len(image):
+                chunks.append(image[offset + 4:offset + 8])
+                offset += 12 + int.from_bytes(image[offset:offset + 4], "big")
+            assert offset == len(image) and set(chunks) == {b"IHDR", b"IDAT", b"IEND"}
+            result["fragments"][0]["text"] = "Bilevel sheet"
         for marker in ("INDEX-BLANK", "INDEX-REJECT", "INDEX-RETRY", "INDEX-INCOMPATIBLE", "INDEX-LEASE"):
             if png and image.endswith(marker.encode()):
                 if marker == "INDEX-BLANK":

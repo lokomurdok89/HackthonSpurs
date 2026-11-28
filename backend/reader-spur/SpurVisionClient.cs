@@ -1,6 +1,5 @@
 using HackthonSpurs.Resources;
 using System.Net;
-using System.Net.Http.Json;
 using System.Text.Json;
 
 namespace HackthonSpurs.SpurReader;
@@ -45,13 +44,13 @@ internal sealed class SpurVisionClient(HttpClient http, SpurSettings settings) :
     /// <param name="ct">Cancellation for the current operation.</param>
     public async Task<string> TranscribeAsync(byte[] image, string mediaType, CancellationToken ct)
     {
-        var content = new object[] {
-            new { type = WireFields.Text, text = ResourceText.TranscriptionPrompt },
-            new { type = WireFields.ImageUrl, image_url = new { url = $"data:{mediaType};base64,{Convert.ToBase64String(image)}" } }
-        };
+        if (image.Length > settings.ImageTarget) throw new ReaderFailure(Errors.OcrPageOverBudget);
+        var bytes = SpurPayload.Encode(settings.Model, image, mediaType);
+        if (bytes.Length > settings.JsonLimit) throw new ReaderFailure(Errors.OcrJsonOverBudget);
         using var request = new HttpRequestMessage(HttpMethod.Post, settings.Endpoint);
         request.Headers.Authorization = settings.Authorization;
-        request.Content = JsonContent.Create(new { model = settings.Model, messages = new[] { new { role = WireFields.User, content } } });
+        request.Content = new ByteArrayContent(bytes);
+        request.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(Media.Json);
         try
         {
             using var reply = await http.SendAsync(request, ct);

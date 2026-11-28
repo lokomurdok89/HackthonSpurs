@@ -3,6 +3,7 @@
   <Project Path="HackthonSpurs.Api/HackthonSpurs.Api.csproj" />
   <Project Path="HackthonSpurs.Documents/HackthonSpurs.Documents.csproj" />
   <Project Path="HackthonSpurs.Worker/HackthonSpurs.Worker.csproj" />
+  <Project Path="ocr-bilevel/OcrBilevel.csproj" />
   <Project Path="reader-fixture/FixtureReader.csproj" />
   <Folder Name="/tests/">
     <Project Path="../tests/spur-reader/SpurReader.Tests.csproj" />
