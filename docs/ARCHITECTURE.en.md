@@ -61,13 +61,13 @@ Formats are not accepted merely because they appear in the matrix. The allowlist
 
 ```text
 docs/ARCHITECTURE.md
-HackthonSpurs.slnx
-src/
-  web/                       React + TypeScript; upload, status, evidence
+backend/
+  HackthonSpurs.slnx
   HackthonSpurs.Api/         ASP.NET Core 10; HTTP validation, ingestion, and queries
   HackthonSpurs.Worker/      .NET 10 BackgroundService; queue and reader HTTP client
   HackthonSpurs.Documents/   Shared .NET library; jobs, persistence, and files
   reader/                    Local HTTP service for native reading and OCR
+frontend/                    React + TypeScript; upload, status, evidence
 tests/                       Transition, integration, and synthetic end-to-end tests
 compose.yaml                 Five services and two persistent volumes
 .env.example                 Variable names and non-sensitive example values only

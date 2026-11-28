@@ -1,6 +1,5 @@
 **
-!src/
-!src/**
+!backend/
+!backend/**
 **/bin/
 **/obj/
-!NuGet.Config

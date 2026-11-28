@@ -59,14 +59,14 @@ PostgreSQL enforces uniqueness across API instances and enables short claim tran
 
 | Component | Responsibility |
 |---|---|
-| `src/HackthonSpurs.Api/` | ASP.NET Core 10 host, request validation, multipart streaming, config/DI, safe HTTP errors and queries. Owns EF migrations at startup. |
-| `src/HackthonSpurs.Documents/` | Shared .NET library for ingestion, private original-file storage, file type admission, EF Core/Npgsql mapping and migrations. No dependency on the UI or OCR. |
+| `backend/HackthonSpurs.Api/` | ASP.NET Core 10 host, request validation, multipart streaming, config/DI, safe HTTP errors and queries. Owns EF migrations at startup. |
+| `backend/HackthonSpurs.Documents/` | Shared .NET library for ingestion, private original-file storage, file type admission, EF Core/Npgsql mapping and migrations. No dependency on the UI or OCR. |
 | `tests/contract/`, `tests/integration/` | Offline OpenAPI examples and real HTTP/PostgreSQL acceptance tests, respectively. |
-| `src/web/` (planned) | React, TypeScript, Vite and fetch. Upload form, status and evidence views. Same-origin proxy; no global state manager or WebSockets required. |
-| `src/HackthonSpurs.Worker/` (planned) | .NET BackgroundService, database claims, bounded retries and an HTTP reader client. References Documents, not the API host. |
-| `src/reader/` (planned) | Local Python/FastAPI/Uvicorn service. Evaluate Poppler for PDF text/rasterization, Tesseract for OCR, openpyxl for spreadsheets and the standard CSV library. No LLM required. |
+| `frontend/` | React, TypeScript, Vite and fetch. Upload form, status and evidence views. Same-origin proxy; no global state manager or WebSockets required. |
+| `backend/HackthonSpurs.Worker/` (planned) | .NET BackgroundService, database claims, bounded retries and an HTTP reader client. References Documents, not the API host. |
+| `backend/reader/` (planned) | Local Python/FastAPI/Uvicorn service. Evaluate Poppler for PDF text/rasterization, Tesseract for OCR, openpyxl for spreadsheets and the standard CSV library. No LLM required. |
 
-The root solution is `HackthonSpurs.slnx`. EF Core with its PostgreSQL provider owns storage and migrations; BCL and ASP.NET Core handle streaming, hashing, ZIP/XML inspection, configuration and HTTP. Pin reader binaries, languages and licenses when that service is added.
+The backend solution is `backend/HackthonSpurs.slnx`. EF Core with its PostgreSQL provider owns storage and migrations; BCL and ASP.NET Core handle streaming, hashing, ZIP/XML inspection, configuration and HTTP. Pin reader binaries, languages and licenses when that service is added.
 
 ## 5. Processing flow and contracts
 

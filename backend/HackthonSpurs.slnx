@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="HackthonSpurs.Api/HackthonSpurs.Api.csproj" />
+  <Project Path="HackthonSpurs.Documents/HackthonSpurs.Documents.csproj" />
+</Solution>

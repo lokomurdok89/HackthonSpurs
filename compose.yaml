@@ -15,7 +15,7 @@ services:
   api:
     build:
       context: .
-      dockerfile: src/HackthonSpurs.Api/Dockerfile
+      dockerfile: backend/HackthonSpurs.Api/Dockerfile
     environment:
       ConnectionStrings__Documents: "Host=postgres;Database=documents;Username=documents;Timeout=5;Command Timeout=10"
       PGPASSWORD: ${POSTGRES_PASSWORD:?Set a local database password}

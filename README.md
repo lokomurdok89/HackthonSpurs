@@ -45,11 +45,11 @@ Admission checks content, not the user-supplied path: PDF version signature; XLS
 ## Verify
 
 ```sh
-dotnet build HackthonSpurs.slnx -c Release
+dotnet build backend/HackthonSpurs.slnx -c Release
 pwsh -NoProfile -File tests/contract/Test-DocumentContract.ps1
 python -B tests/integration/test_document_api.py
 ```
 
 The build requires the .NET 10 SDK; PowerShell 7.6 runs the offline contract checks. The integration suite requires Python 3, Docker and Compose; it builds a private, randomly named project on an ephemeral loopback port, creates its own secret and removes **only that project's** test containers, volumes and image afterwards. It checks real multipart requests, idempotency races, input limits, persisted results/terminal errors, restart durability and a database outage. No external OCR or production credentials are used. If a subnet override is needed for tests, set `COMPOSE_FILE` to both Compose filenames using the platform separator and choose an unused `SPURS_SUBNET`.
 
-For schema work, run `dotnet tool restore`. With the API's native development settings supplied, run `dotnet ef migrations has-pending-model-changes --project src/HackthonSpurs.Documents --startup-project src/HackthonSpurs.Api`. Only the API owns migrations. The runtime dependency is the Npgsql EF Core provider; EF design tooling is private to the build/authoring workflow.
+For schema work, run `dotnet tool restore` from `backend/`. With the API's native development settings supplied, run `dotnet ef migrations has-pending-model-changes --project HackthonSpurs.Documents --startup-project HackthonSpurs.Api` from `backend/`. Only the API owns migrations. The runtime dependency is the Npgsql EF Core provider; EF design tooling is private to the build/authoring workflow.
