@@ -1,7 +1,7 @@
 using System.Text.Json;
 using HackthonSpurs.Api.Http;
-using HackthonSpurs.Documents.Embeddings;
-using HackthonSpurs.Documents.Queries;
+using HackthonSpurs.Application.Embeddings;
+using HackthonSpurs.Application.Queries;
 using HackthonSpurs.Resources;
 
 namespace HackthonSpurs.Api.Endpoints.Search;
@@ -23,10 +23,9 @@ internal static class SearchEndpoints
 
     /// <summary>Validate an explicit query and return ranked excerpts from current OCR indexes.</summary>
     /// <param name="request">Caller JSON body, bounded before deserialization.</param>
-    /// <param name="search">Read-only document search service.</param>
-    /// <param name="profile">Current provider model identification.</param>
+    /// <param name="search">Explicit search use case.</param>
     /// <param name="ct">Cancellation for the API request.</param>
-    public static async Task<IResult> Search(HttpRequest request, DocumentSearchService search, SpurEmbeddingSettings profile, CancellationToken ct)
+    public static async Task<IResult> Search(HttpRequest request, DocumentSearchService search, CancellationToken ct)
     {
         if (!request.HasJsonContentType()) return ApiProblems.Unsupported();
         if (request.ContentLength > MaxRequestBytes) return ApiProblems.TooLarge();
@@ -49,18 +48,18 @@ internal static class SearchEndpoints
 
         try
         {
-            var results = await search.SearchAsync(query, topK, body?.DocumentId, ct);
-            return Results.Ok(new { query, model = profile.ModelId, results });
+            var view = await search.SearchAsync(query, topK, body?.DocumentId, ct);
+            return Results.Ok(new { query, model = view.Model, results = view.Results });
         }
-        catch (SpurEmbeddingException ex)
+        catch (EmbeddingFailure ex)
         {
             return ApiProblems.Error(ex.Error);
         }
     }
 
     /// <summary>Count compatible index records without sending a provider request.</summary>
-    /// <param name="search">Read-only document search service.</param>
+    /// <param name="reads">Read-only search statistics projection.</param>
     /// <param name="ct">Cancellation for the API request.</param>
-    public static async Task<IResult> Stats(DocumentSearchService search, CancellationToken ct) =>
-        Results.Ok(await search.GetStatsAsync(ct));
+    public static async Task<IResult> Stats(IIndexedDocumentReads reads, CancellationToken ct) =>
+        Results.Ok(await reads.GetStatsAsync(ct));
 }

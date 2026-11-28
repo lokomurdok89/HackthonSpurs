@@ -6,5 +6,5 @@
 - For backend project or dependency changes, run `python -B tests/quality/test_backend_layout.py`; keep the [project ownership map](docs/ARCHITECTURE.md#4-projects-and-dependencies) in sync.
 - Write project documentation in English. Use only synthetic fixtures in version control and tests; never publish local demo data, uploads or secrets.
 - Document each hand-written named function, method and constructor in English at its declaration. Describe its behavior and the meaning of its inputs (excluding implicit receivers). Keep inline callbacks local; do not rewrite generated code or historical migrations for style.
-- Keep document commands and read-only projections separate; see the CQRS section of the maintained architecture. Follow the root EditorConfig for indentation.
+- Keep document commands and read-only projections separate. Domain rules must not depend on Application; neither layer may import a host or provider. Run `dotnet run --project tests/application -c Release` for the use-case checks; see the CQRS section of the maintained architecture. Follow the root EditorConfig for indentation.
 - Keep backend errors, messages, setting names, operational defaults and application literals in the [shared catalog](docs/backend-resources.md). Regenerate bindings and run `tests/quality/Test-BackendResources.ps1`; do not store credentials there.

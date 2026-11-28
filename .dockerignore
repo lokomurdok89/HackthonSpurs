@@ -1,6 +1,10 @@
 **
 !backend/
 backend/*
+!backend/HackthonSpurs.Domain/
+!backend/HackthonSpurs.Domain/**
+!backend/HackthonSpurs.Application/
+!backend/HackthonSpurs.Application/**
 !backend/HackthonSpurs.Api/
 !backend/HackthonSpurs.Api/**
 !backend/HackthonSpurs.Documents/

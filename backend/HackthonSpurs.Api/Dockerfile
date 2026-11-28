@@ -2,9 +2,13 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0.401 AS build
 WORKDIR /source
 COPY backend/NuGet.Config backend/
 COPY backend/HackthonSpurs.Resources/ backend/HackthonSpurs.Resources/
+COPY backend/HackthonSpurs.Domain/*.csproj backend/HackthonSpurs.Domain/
+COPY backend/HackthonSpurs.Application/*.csproj backend/HackthonSpurs.Application/
 COPY backend/HackthonSpurs.Api/*.csproj backend/HackthonSpurs.Api/
 COPY backend/HackthonSpurs.Documents/*.csproj backend/HackthonSpurs.Documents/
 RUN dotnet restore backend/HackthonSpurs.Api
+COPY backend/HackthonSpurs.Domain/ backend/HackthonSpurs.Domain/
+COPY backend/HackthonSpurs.Application/ backend/HackthonSpurs.Application/
 COPY backend/HackthonSpurs.Api/ backend/HackthonSpurs.Api/
 COPY backend/HackthonSpurs.Documents/ backend/HackthonSpurs.Documents/
 RUN dotnet publish backend/HackthonSpurs.Api -c Release --no-restore -o /publish

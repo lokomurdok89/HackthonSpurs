@@ -1,17 +1,16 @@
 using HackthonSpurs.Resources;
 using System.Text.Json;
-using HackthonSpurs.Documents.Embeddings;
 
-namespace HackthonSpurs.Worker.Indexing;
+namespace HackthonSpurs.Application.Processing;
 
-internal sealed record OcrIndexChunk(int Page, string Text);
+public sealed record OcrIndexChunk(int Page, string Text);
 
-internal static class OcrIndexChunks
+public static class OcrIndexChunks
 {
     /// <summary>Split a validated reading into bounded excerpts without losing its original page locators.</summary>
     /// <param name="reading">Persisted OCR result JSON; never read original file bytes here.</param>
     /// <param name="id">Claimed document identifier expected in the reading.</param>
-    internal static IReadOnlyList<OcrIndexChunk>? Create(string reading, Guid id)
+    public static IReadOnlyList<OcrIndexChunk>? Create(string reading, Guid id)
     {
         try
         {
@@ -50,7 +49,7 @@ internal static class OcrIndexChunks
     {
         for (int offset = 0; offset < text.Length;)
         {
-            int length = Math.Min(text.Length - offset, SpurEmbeddingClient.MaxInputLength);
+            int length = Math.Min(text.Length - offset, Policy.EmbedInput);
             if (offset + length < text.Length && char.IsHighSurrogate(text[offset + length - 1])) length--;
             var part = text.AsSpan(offset, length).Trim();
             if (!part.IsEmpty) chunks.Add(new(page, part.ToString()));

@@ -4,7 +4,8 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using HackthonSpurs.Documents.Embeddings;
-using HackthonSpurs.Worker.Indexing;
+using HackthonSpurs.Application.Embeddings;
+using HackthonSpurs.Application.Processing;
 
 namespace HackthonSpurs.Worker.Tests;
 
@@ -69,7 +70,7 @@ internal static class EmbeddingReview
     private static async Task ExpectFailure(Func<Task> operation, string code, bool retry)
     {
         try { await operation(); }
-        catch (SpurEmbeddingException ex) when (ex.Code == code && ex.Message == code && ex.Retryable == retry) { return; }
+        catch (EmbeddingFailure ex) when (ex.Code == code && ex.Message == code && ex.Retryable == retry) { return; }
         throw new InvalidOperationException("Missing expected safe provider failure: " + code);
     }
 

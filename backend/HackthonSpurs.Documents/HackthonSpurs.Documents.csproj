@@ -10,6 +10,8 @@
     <PackageReference Include="Pgvector.EntityFrameworkCore" Version="0.3.0" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="../HackthonSpurs.Application/HackthonSpurs.Application.csproj" />
+    <ProjectReference Include="../HackthonSpurs.Domain/HackthonSpurs.Domain.csproj" />
     <ProjectReference Include="../HackthonSpurs.Resources/HackthonSpurs.Resources.csproj" />
   </ItemGroup>
 </Project>

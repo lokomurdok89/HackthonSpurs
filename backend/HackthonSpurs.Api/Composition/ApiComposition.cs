@@ -1,9 +1,11 @@
 using HackthonSpurs.Api.Auth;
 using HackthonSpurs.Api.Auth.Accounts;
-using HackthonSpurs.Documents.Commands;
+using HackthonSpurs.Application.Commands;
 using HackthonSpurs.Documents.Embeddings;
 using HackthonSpurs.Documents.Persistence;
-using HackthonSpurs.Documents.Queries;
+using HackthonSpurs.Application.Queries;
+using HackthonSpurs.Documents.Persistence.Commands;
+using HackthonSpurs.Documents.Persistence.Queries;
 using HackthonSpurs.Documents.Storage;
 using HackthonSpurs.Resources;
 using Microsoft.EntityFrameworkCore;
@@ -27,11 +29,14 @@ internal static class ApiComposition
         builder.WebHost.ConfigureKestrel(k => k.Limits.MaxRequestBodySize = maxBytes + Policy.MultipartOverhead); // includes multipart framing
         builder.Services.AddDbContext<DocumentsDb>(options => options.UseNpgsql(connection, npgsql => npgsql.UseVector()));
         builder.Services.AddSingleton(new StorageSettings(root, maxBytes));
-        builder.Services.AddSingleton<OriginalStore>();
+        builder.Services.AddSingleton<IOriginalStaging, OriginalStore>();
         builder.Services.AddScoped<AcceptDocumentHandler>();
-        builder.Services.AddScoped<GetDocumentStatusHandler>();
-        builder.Services.AddScoped<GetDocumentResultHandler>();
-        builder.Services.AddScoped<GetDocumentIndexStatusHandler>();
+        builder.Services.AddScoped<IDocumentAdmissions, PostgresDocumentAdmissions>();
+        builder.Services.AddScoped<IDocumentReads, PostgresDocumentReads>();
+        builder.Services.AddScoped<ITranscriptReindex, PostgresTranscriptReindex>();
+        builder.Services.AddScoped<PostgresSemanticIndex>();
+        builder.Services.AddScoped<IIndexedDocumentReads>(sp => sp.GetRequiredService<PostgresSemanticIndex>());
+        builder.Services.AddScoped<ISemanticSearchIndex>(sp => sp.GetRequiredService<PostgresSemanticIndex>());
         builder.Services.AddScoped<DocumentSearchService>();
         builder.Services.AddScoped<ReindexTranscriptHandler>();
         SpurEmbeddingSettings.Register(builder.Services, builder.Configuration, builder.Environment.IsEnvironment(SettingNames.TestingEnvironment));

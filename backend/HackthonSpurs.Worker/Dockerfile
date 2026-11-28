@@ -2,6 +2,8 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0.401 AS build
 WORKDIR /source
 COPY backend/NuGet.Config backend/
 COPY backend/HackthonSpurs.Resources/ backend/HackthonSpurs.Resources/
+COPY backend/HackthonSpurs.Domain/ backend/HackthonSpurs.Domain/
+COPY backend/HackthonSpurs.Application/ backend/HackthonSpurs.Application/
 COPY backend/HackthonSpurs.Worker/ backend/HackthonSpurs.Worker/
 COPY backend/HackthonSpurs.Documents/ backend/HackthonSpurs.Documents/
 COPY backend/HackthonSpurs.Reader.Fixture/worker-demo.csv backend/HackthonSpurs.Reader.Fixture/

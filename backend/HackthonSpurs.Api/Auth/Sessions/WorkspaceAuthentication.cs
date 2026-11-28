@@ -11,9 +11,9 @@ namespace HackthonSpurs.Api.Auth.Sessions;
 /// <param name="options">Framework scheme settings.</param>
 /// <param name="logger">Framework authentication logger.</param>
 /// <param name="encoder">Framework URL encoder.</param>
-/// <param name="sessions">Per-request workspace session service.</param>
+/// <param name="sessions">Read-only workspace session lookup.</param>
 internal sealed class WorkspaceAuthentication(IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger,
-    UrlEncoder encoder, WorkspaceSessions sessions) : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
+    UrlEncoder encoder, WorkspaceSessionLookup sessions) : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
 {
     /// <summary>Load the authenticated user and keep only the public account summary in request scope.</summary>
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()

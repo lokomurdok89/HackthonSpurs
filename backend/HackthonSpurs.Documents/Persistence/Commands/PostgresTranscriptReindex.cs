@@ -1,16 +1,14 @@
-using HackthonSpurs.Documents.Persistence;
+using HackthonSpurs.Application.Commands;
 using Microsoft.EntityFrameworkCore;
 
-namespace HackthonSpurs.Documents.Commands;
+namespace HackthonSpurs.Documents.Persistence.Commands;
 
-/// <summary>Requeue a terminal index without changing any reading job or accessing originals.</summary>
+/// <summary>Use conditional writes so a stale read cannot reset an active index lease.</summary>
 /// <param name="db">Scoped workspace database.</param>
-public sealed class ReindexTranscriptHandler(DocumentsDb db)
+public sealed class PostgresTranscriptReindex(DocumentsDb db) : ITranscriptReindex
 {
-    /// <summary>Reset only an existing eligible terminal index; pending requests coalesce.</summary>
-    /// <param name="id">Document receipt selected by the administrator.</param>
-    /// <param name="ct">Request cancellation.</param>
-    public async Task<bool?> HandleAsync(Guid id, CancellationToken ct)
+    /// <inheritdoc />
+    public async Task<ReindexOutcome> RequeueAsync(Guid id, CancellationToken ct)
     {
         var eligible = db.IndexJobs.Where(i => i.DocumentId == id && db.Documents.Any(d =>
             d.Id == id && d.SendToOcr && d.State == JobState.Completed));
@@ -20,7 +18,7 @@ public sealed class ReindexTranscriptHandler(DocumentsDb db)
                 .SetProperty(i => i.ChunkCount, 0).SetProperty(i => i.Dimensions, (int?)null)
                 .SetProperty(i => i.EmbeddingVersion, (string?)null), ct);
         if (reset > 0 || await eligible.AnyAsync(i => i.State == IndexState.Queued || i.State == IndexState.Processing, ct))
-            return true;
-        return await db.Documents.AnyAsync(d => d.Id == id, ct) ? false : null;
+            return ReindexOutcome.Accepted;
+        return await db.Documents.AnyAsync(d => d.Id == id, ct) ? ReindexOutcome.Ineligible : ReindexOutcome.MissingDocument;
     }
 }

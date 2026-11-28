@@ -1,6 +1,6 @@
 using HackthonSpurs.Worker.Ocr.Contracts;
 using HackthonSpurs.Worker.Ocr.Rendering;
-using HackthonSpurs.Worker.Processing.Queues;
+using HackthonSpurs.Application.Processing;
 using HackthonSpurs.Resources;
 using HackthonSpurs.Documents.Storage;
 using System.Net;
@@ -14,12 +14,12 @@ namespace HackthonSpurs.Worker.Ocr;
 /// <param name="endpoint">Private reader endpoint.</param>
 /// <param name="root">Private originals directory.</param>
 /// <param name="bands">Local image and wire budget planner.</param>
-internal sealed class ReaderClient(HttpClient http, Uri endpoint, string root, BandPlanner bands)
+internal sealed class ReaderClient(HttpClient http, Uri endpoint, string root, BandPlanner bands) : IDocumentReader
 {
     /// <summary>Verify the original, call the bounded reader and validate its response.</summary>
     /// <param name="job">Claim authorizing this attempt.</param>
     /// <param name="stopping">Host shutdown token.</param>
-    public async Task<ReadOutcome> ReadAsync(Claim job, CancellationToken stopping)
+    public async Task<ReadOutcome> ReadAsync(ReadingClaim job, CancellationToken stopping)
     {
         bool spur = endpoint.Host == ServiceDefaults.SpurHost;
         byte[] bytes;
@@ -30,7 +30,7 @@ internal sealed class ReaderClient(HttpClient http, Uri endpoint, string root, B
                 return new(Error: Errors.OriginalMismatch.Code);
             bytes = new byte[(int)job.ByteCount];
             await input.ReadExactlyAsync(bytes, stopping);
-            if (Convert.ToHexStringLower(SHA256.HashData(bytes)) != (spur ? job.Hash : JobQueue.FixtureHash))
+            if (Convert.ToHexStringLower(SHA256.HashData(bytes)) != (spur ? job.Hash : FixtureLane.Hash))
                 return new(Error: Errors.OriginalMismatch.Code);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)

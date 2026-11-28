@@ -68,9 +68,11 @@ The backend solution is [HackthonSpurs.slnx](../backend/HackthonSpurs.slnx). Pro
 
 | Project or build asset | Where to put a change | Why this boundary exists |
 |---|---|---|
-| [HackthonSpurs.Api](../backend/HackthonSpurs.Api) | HTTP routes in `Endpoints/`, account request/response shapes in `Contracts/`, workspace identity behavior in `Auth/`, HTTP failures in `Http/`, startup wiring in `Composition/`. | Owns authentication, HTTP and migration startup. Document commands and queries are injected; the API does not run a document reader. |
-| [HackthonSpurs.Documents](../backend/HackthonSpurs.Documents) | Mutations in `Commands/`, read projections in `Queries/`, persisted entities in `Models/`, EF configuration and migrations in `Persistence/`. Original storage and embedding adapters belong in `Infrastructure/`. | API and Worker both use document behavior. Moving this library into either host would couple the other to an executable. Persisted entities are not HTTP DTOs. |
-| [HackthonSpurs.Worker](../backend/HackthonSpurs.Worker) | Reading jobs and leases in `Processing/`, reader contracts and image preparation in `Ocr/`, vector jobs in `Indexing/`. `Composition/` selects and wires the host's active lane. | Runs separately from the API. A reading can create an index job; indexing uses only the persisted transcript, never the original. |
+| [HackthonSpurs.Domain](../backend/HackthonSpurs.Domain) | Decisions independent of I/O: whether a submission is a replay and which changes to a workspace administrator are permitted. | Uses only the .NET base library. A domain policy is not an EF entity, worker or wire DTO. |
+| [HackthonSpurs.Application](../backend/HackthonSpurs.Application) | Document commands, read projections and ports for processing a single claim. | Owns the contracts it needs. Use cases can run with test doubles and do not know about EF, PostgreSQL, HTTP hosts, Magick or the storage volume. |
+| [HackthonSpurs.Api](../backend/HackthonSpurs.Api) | HTTP routes, authentication and authorization, safe HTTP failures, DI and startup. | An inbound adapter. It parses the public protocol and maps application outcomes to the same OpenAPI responses. The composition root selects adapters and applies EF migrations. |
+| [HackthonSpurs.Documents](../backend/HackthonSpurs.Documents) | SQL/EF projections and transactional commands, persisted entities and mapping, private original storage, vector search and provider integration. | An outer adapter shared by the hosts. Its existing name and assembly identity are retained for published migrations. Do not add new business rules here just because their inputs are stored in this database. |
+| [HackthonSpurs.Worker](../backend/HackthonSpurs.Worker) | Polling, leases in PostgreSQL, rendering and private reader transport, configuration and diagnostics. | The host adapts an independently testable processing step to a long-running service. The index lane has no original-file mount or OCR client. |
 | [HackthonSpurs.Reader.Spur](../backend/HackthonSpurs.Reader.Spur) | Private page endpoint in `Endpoints/`, the transcription boundary in `Contracts/` and SPUR settings and HTTP adapter in `Provider/`. | The vision credential belongs to this HTTP service, not the document Worker or browser. No database or original-volume access. |
 | [HackthonSpurs.Reader.Fixture](../backend/HackthonSpurs.Reader.Fixture) | The private synthetic reader and its exact CSV fixture. | Remains an executable for end-to-end tests of the HTTP boundary; no external provider or credential is needed. |
 | [HackthonSpurs.Ocr.Bilevel](../backend/HackthonSpurs.Ocr.Bilevel) | Worker-side monochrome image encoding with Magick.NET. | This is a **child process**, not another network service. Its native package is shipped only in the document-OCR image; it can be terminated independently of the Worker. |
@@ -79,7 +81,15 @@ The backend solution is [HackthonSpurs.slnx](../backend/HackthonSpurs.slnx). Pro
 
 The fixture reader and the image helper each have a single implementation beside their entry point. They do not need the API’s folder hierarchy. Conversely, entities (stored state) and request/response shapes (transport contracts) do not belong in one global `Models` library.
 
-**Dependency direction:** API and Worker may reference Documents and Resources; Documents and each reader/helper may reference Resources. No backend host references another host. Test harnesses live under `tests/`, outside the production dependency graph. Run `python -B tests/quality/test_backend_layout.py` after changing projects or references.
+**Dependency direction (compile time, not network traffic):**
+
+```text
+API and Worker composition roots ──► application use cases + concrete adapters
+Document / queue / provider adapters ──► application-owned ports
+Application ──► Domain
+```
+
+Resources supplies the shared protocol vocabulary and operational constants; it does not depend on a host. ASP.NET authentication, EF mappings, Npgsql leases and native image libraries are outer-layer concerns. There is no dependency from Domain or Application to a host or adapter. Run `python -B tests/quality/test_backend_layout.py` to check project references, package boundaries and document endpoints.
 
 **Compatibility rule:** the physical folders for entities are not their EF identities. Their existing CLR namespace, Documents assembly, migration IDs and snapshot are deliberately preserved. This reorganization does not require a database migration or a new OpenAPI version. Compose service names, environment variables and HTTP routes are runtime contracts; do not rename them to match a source folder.
 
@@ -87,20 +97,23 @@ The [semantic search runbook](semantic-search.md) describes the optional index w
 
 ### CQRS in the document backend
 
-The API is an HTTP adapter, not the owner of the use cases. It parses the request, invokes one handler via scoped dependency injection, then maps the outcome to the existing OpenAPI response.
+Commands and queries use the **same** PostgreSQL database. The distinction is the right to change state, not the HTTP verb or the number of databases.
 
-| Intent | Entry point | Owner and behavior |
+| Operation | Owner of the decision | Boundary that must remain intact |
 |---|---|---|
-| Command: accept an upload | `POST /api/documents` | [`AcceptDocumentHandler`](../backend/HackthonSpurs.Documents/Commands/AcceptDocumentHandler.cs) arbitrates the operation key, validates the staged bytes, publishes the original and commits the queued job. Reading an existing key **inside the command** enforces idempotency. |
-| Query: check progress | `GET /api/documents/{id}` | [`GetDocumentStatusHandler`](../backend/HackthonSpurs.Documents/Queries/GetDocumentStatusHandler.cs) projects only state, attempt and failure code. |
-| Query: read evidence | `GET /api/documents/{id}/result` | [`GetDocumentResultHandler`](../backend/HackthonSpurs.Documents/Queries/GetDocumentResultHandler.cs) projects state and persisted result JSON. It never calls a reader or schedules work. |
-| Query: check index progress | `GET /api/documents/{id}/index-status` | `GetDocumentIndexStatusHandler` independently projects the durable index state. |
-| Query: search OCR | `POST /api/search`, `GET /api/search/stats` | `DocumentSearchService` ranks current-profile excerpts; only an explicit query with compatible indexed data calls the embedding provider. Neither route writes document state. |
-| Query: inspect excerpts | `GET /api/documents/{id}/chunks` | Reads published compatible chunks in source order. No provider call or new job. |
-| Command: reindex | `POST /api/documents/{id}/reindex` | An administrator can requeue the stored transcript for embeddings without triggering OCR again. |
-| Internal writes: claim and finish | Worker loop, not HTTP | `JobQueue` changes reader lease and state; a valid SPUR publication creates one index job atomically. `IndexQueue` owns the independent lease and publishes chunks plus terminal status in a short transaction. A claim is a write even though it returns work. |
+| Accept a staged upload | Application uses the domain replay policy: the same key, bytes and reading mode return the original receipt. A different payload or mode is a conflict. | The persistence adapter arbitrates simultaneous writers with the unique key, publishes the original and commits the job. It must not delete a published original on an ambiguous commit. Reading the winning row is part of this **command**. |
+| Inspect a receipt, result, index, chunks or statistics | Read-only application contracts return projections rather than EF entities. | Polling does not enqueue work. Semantic search is also a **query** despite using POST and embedding the explicit search text: it must not write to the receipt, index or chunks. |
+| Reindex a transcript | An explicit administrator **command**, independent of document admission. | Queues embeddings from stored OCR; never reopens the original, schedules OCR or changes the reading job. |
+| Process one OCR or index claim | Application orchestration delegates reading/embedding and publication through narrow ports. | A claim is a write. PostgreSQL must check lease ownership when publishing; a stale worker cannot overwrite a later attempt. Polling, SQL, provider transport and shutdown stay outside domain policy. |
+| Maintain workspace accounts | Listing accounts is a query. Creation, edits and session revocation mutate state. The self-lockout and last-admin rules are domain decisions. | The adapter checks the acting session and administrator count under the same writer lock as the update. Authentication cookies, password hashing and bootstrap remain operational concerns, not domain objects. |
 
-Read models use no-tracking projections on the same PostgreSQL database as the commands. The OCR job table remains separate from the indexing job and pgvector chunks, without introducing a second database, event store, message bus or mediator package. Add new document mutations under `Commands/` and new read projections under `Queries/` in the existing `HackthonSpurs.Documents` project.
+For example, the [admission handler](../backend/HackthonSpurs.Application/Commands/AcceptDocumentHandler.cs) looks up the operation key *before* inspecting a staged original. A matching retry returns immediately. For a previously unseen key the [PostgreSQL adapter](../backend/HackthonSpurs.Documents/Persistence/Commands/PostgresDocumentAdmissions.cs) reserves the key inside a transaction; if a concurrent writer won, it returns that writer's identity to the **same** domain replay rule. This keeps race handling in the adapter without duplicating the admission rule. A filesystem move is not a PostgreSQL transaction: an ambiguous commit can leave an orphan, so the adapter must not guess that it is safe to delete.
+
+For a new read projection, start with the fields and read-only port in [Application/Queries](../backend/HackthonSpurs.Application/Queries); implement it as a no-tracking projection in [Persistence/Queries](../backend/HackthonSpurs.Documents/Persistence/Queries). Add a separate application handler only when there is orchestration (for example, checking index compatibility **before** embedding a search query). A pass-through handler or a shared `SaveChanges` method on read ports adds no value.
+
+For Worker changes, start at [one reading attempt](../backend/HackthonSpurs.Application/Processing/ProcessReadingJob.cs) or [one index attempt](../backend/HackthonSpurs.Application/Processing/ProcessIndexJob.cs). Run `dotnet run --project tests/application -c Release` to exercise the decisions with in-memory ports. The [semantic integration suite](../tests/integration/test_semantic_index.py) separately checks real PostgreSQL row versions around all six read operations and counts private reader calls through replay and reindex.
+
+**Why these interfaces?** Use a port where an external effect needs substituting, where a query must not obtain write capabilities, or where a transaction must remain indivisible. There is no generic repository, event bus, second database, or interface per class. EF entities remain persistence models; duplicating every column into an equivalent domain entity would not make any rule more independent.
 
 ## 5. Processing flow and contracts
 

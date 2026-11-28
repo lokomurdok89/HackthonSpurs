@@ -9,6 +9,8 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.15" PrivateAssets="all" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="../HackthonSpurs.Application/HackthonSpurs.Application.csproj" />
+    <ProjectReference Include="../HackthonSpurs.Domain/HackthonSpurs.Domain.csproj" />
     <ProjectReference Include="../HackthonSpurs.Resources/HackthonSpurs.Resources.csproj" />
   </ItemGroup>
 </Project>

@@ -1,3 +1,5 @@
+using HackthonSpurs.Application.Embeddings;
+using HackthonSpurs.Application.Processing;
 using HackthonSpurs.Documents.Embeddings;
 using HackthonSpurs.Resources;
 using HackthonSpurs.Worker.Indexing;
@@ -27,7 +29,8 @@ internal static class WorkerComposition
         if (config.GetValue<bool>(SettingNames.IndexWorker))
         {
             SpurEmbeddingSettings.Register(builder.Services, config, builder.Environment.IsEnvironment(SettingNames.TestingEnvironment));
-            builder.Services.AddSingleton<IndexQueue>();
+            builder.Services.AddSingleton<IIndexJobs, IndexQueue>();
+            builder.Services.AddSingleton<ProcessIndexJob>();
             builder.Services.AddHostedService<IndexWorker>();
             return true;
         }
@@ -41,7 +44,7 @@ internal static class WorkerComposition
     /// <param name="indexLane">Whether the index lane was registered.</param>
     internal static void Validate(IHost host, bool indexLane)
     {
-        if (indexLane && !host.Services.GetRequiredService<SpurEmbeddingSettings>().IsConfigured)
+        if (indexLane && !host.Services.GetRequiredService<EmbeddingProfile>().IsConfigured)
             throw new InvalidOperationException(ResourceText.RequireIndexing);
     }
 
@@ -58,7 +61,7 @@ internal static class WorkerComposition
         bool spur = endpoint == new Uri(ServiceDefaults.SpurReader);
         if (!spur && endpoint != new Uri(ServiceDefaults.FixtureReader))
             throw new InvalidOperationException(ResourceText.UnsupportedReader);
-        services.AddSingleton(sp => new JobQueue(sp.GetRequiredService<NpgsqlDataSource>(), spur));
+        services.AddSingleton<IReadingJobs>(sp => new JobQueue(sp.GetRequiredService<NpgsqlDataSource>(), spur));
         services.AddSingleton(_ => new HttpClient(new SocketsHttpHandler
         {
             AllowAutoRedirect = false,
@@ -70,7 +73,8 @@ internal static class WorkerComposition
         var bands = new BandPlanner(target, OcrBudgets.JsonLimit(config[SettingNames.OcrJsonLimit]),
             config[SettingNames.VisionModelEnv] ?? (spur ? throw new InvalidOperationException(ResourceText.InvalidVisionModel) : string.Empty),
             config.GetValue(SettingNames.OcrAdaptiveMonochrome, true));
-        services.AddSingleton(sp => new ReaderClient(sp.GetRequiredService<HttpClient>(), endpoint, root, bands));
+        services.AddSingleton<IDocumentReader>(sp => new ReaderClient(sp.GetRequiredService<HttpClient>(), endpoint, root, bands));
+        services.AddSingleton<ProcessReadingJob>();
         services.AddHostedService<DocumentWorker>();
     }
 }

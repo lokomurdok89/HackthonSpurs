@@ -1,3 +1,4 @@
+using HackthonSpurs.Application.Commands;
 using HackthonSpurs.Api.Auth.Sessions;
 using HackthonSpurs.Documents.Persistence;
 using HackthonSpurs.Resources;
@@ -28,8 +29,8 @@ internal static class WorkspaceBootstrap
         var db = services.GetRequiredService<DocumentsDb>();
         await using var transaction = await WorkspaceWriteLock.AcquireAsync(db, ct);
         if (await db.WorkspaceUsers.AnyAsync(ct)) return;
-        var username = AccountFields.Username(configuredUsername);
-        if (username is null || !AccountFields.ValidPassword(password))
+        var username = WorkspaceAccountInput.Username(configuredUsername);
+        if (username is null || !WorkspaceAccountInput.ValidPassword(password))
             throw new InvalidOperationException(ResourceText.InvalidBootstrap);
         var hasher = services.GetRequiredService<IPasswordHasher<WorkspaceUser>>();
         db.WorkspaceUsers.Add(AccountFields.Create(username, username, password!, Wire.AdminRole, hasher));

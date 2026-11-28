@@ -1,4 +1,5 @@
 using HackthonSpurs.Resources;
+using HackthonSpurs.Application.Embeddings;
 using System.Net.Http.Headers;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -43,7 +44,8 @@ public sealed class SpurEmbeddingSettings(Uri? Endpoint, string ApiKey, string M
             endpoint = new Uri(url + ServiceDefaults.EmbeddingsPath);
         }
         services.AddSingleton(new SpurEmbeddingSettings(endpoint, endpoint is null ? "" : key, model, version, dimensions));
-        services.AddHttpClient<SpurEmbeddingClient>(client =>
+        services.AddSingleton(new EmbeddingProfile(endpoint is not null, model, version, dimensions));
+        services.AddHttpClient<ITextEmbeddings, SpurEmbeddingClient>(client =>
             {
                 client.Timeout = TimeSpan.FromSeconds(Policy.ProviderSeconds);
                 client.MaxResponseContentBufferSize = Policy.MaxEmbedReply;
@@ -59,21 +61,4 @@ public sealed class SpurEmbeddingSettings(Uri? Endpoint, string ApiKey, string M
     /// <param name="value">Configured model or version token.</param>
     private static bool ValidProfilePart(string value) => value.Length is > 0 and <= Policy.MaxModelLength &&
         value.All(c => char.IsAsciiLetterOrDigit(c) || ServiceDefaults.ModelPunctuation.Contains(c));
-}
-
-public sealed class SpurEmbeddingException : Exception
-{
-    /// <summary>Classify a provider failure without retaining the payload or upstream exception.</summary>
-    /// <param name="error">Catalog definition of the classified failure.</param>
-    /// <param name="retryable">Whether the durable indexing worker can retry this failure.</param>
-    internal SpurEmbeddingException(BackendError error, bool retryable = false) : base(error.Code)
-    {
-        Error = error;
-        Retryable = retryable;
-    }
-
-    public BackendError Error { get; }
-    public string Code => Error.Code;
-    public int StatusCode => Error.HttpStatus!.Value;
-    public bool Retryable { get; }
 }

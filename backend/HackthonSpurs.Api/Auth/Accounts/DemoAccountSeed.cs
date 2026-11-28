@@ -1,3 +1,4 @@
+using HackthonSpurs.Application.Commands;
 using HackthonSpurs.Documents.Persistence;
 using HackthonSpurs.Resources;
 using Microsoft.AspNetCore.Identity;
@@ -32,7 +33,7 @@ internal static class DemoAccountSeed
             }
 
             var password = settings[key];
-            if (!AccountFields.ValidPassword(password) ||
+            if (!WorkspaceAccountInput.ValidPassword(password) ||
                 settings[SettingNames.DemoAdminPassword] == settings[SettingNames.DemoReaderPassword])
                 throw new InvalidOperationException(ResourceText.DemoSeedPasswordInvalid);
             db.WorkspaceUsers.Add(AccountFields.Create(name, name, password!, role, hasher));

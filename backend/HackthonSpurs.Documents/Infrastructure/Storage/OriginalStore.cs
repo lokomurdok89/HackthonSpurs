@@ -1,3 +1,4 @@
+using HackthonSpurs.Application.Commands;
 using HackthonSpurs.Resources;
 using System.Buffers;
 using System.Security.Cryptography;
@@ -8,17 +9,16 @@ namespace HackthonSpurs.Documents.Storage;
 /// <param name="Root">Absolute private originals directory.</param>
 /// <param name="MaxFileBytes">Maximum bytes accepted per file.</param>
 public sealed record StorageSettings(string Root, long MaxFileBytes);
-public sealed class UploadTooLargeException : Exception;
 
 // Paths derive exclusively from server-generated IDs, never from uploaded filenames.
 /// <summary>Stage bounded uploads in private storage under opaque names.</summary>
 /// <param name="settings">Validated process settings.</param>
-public sealed class OriginalStore(StorageSettings settings)
+public sealed class OriginalStore(StorageSettings settings) : IOriginalStaging
 {
     /// <summary>Stream an upload into a temporary file while counting and hashing its bytes.</summary>
     /// <param name="source">Untrusted upload stream.</param>
     /// <param name="ct">Cancellation for the current operation.</param>
-    public async Task<StagedFile> StageAsync(Stream source, CancellationToken ct)
+    public async Task<IStagedOriginal> StageAsync(Stream source, CancellationToken ct)
     {
         Directory.CreateDirectory(settings.Root);
         var id = Guid.NewGuid();
@@ -43,7 +43,7 @@ public sealed class OriginalStore(StorageSettings settings)
                 await output.WriteAsync(buffer.AsMemory(0, n), ct);
             }
             output.Flush(flushToDisk: true);
-            return new(id, temporary, final, count, Convert.ToHexStringLower(hash.GetHashAndReset()));
+            return new StagedFile(id, temporary, final, count, Convert.ToHexStringLower(hash.GetHashAndReset()));
         }
         catch
         {
@@ -60,8 +60,15 @@ public sealed class OriginalStore(StorageSettings settings)
 /// <param name="FinalPath">Destination assigned to the accepted original.</param>
 /// <param name="Length">Staged file size in bytes.</param>
 /// <param name="Sha256">Digest of the staged bytes.</param>
-public sealed record StagedFile(Guid Id, string TemporaryPath, string FinalPath, long Length, string Sha256) : IDisposable
+internal sealed record StagedFile(Guid Id, string TemporaryPath, string FinalPath, long Length, string Sha256) : IStagedOriginal
 {
+    /// <inheritdoc />
+    public OriginalInspection Inspect(string declaredType, bool spur)
+    {
+        var type = FileIdentification.Identify(TemporaryPath, declaredType, spur);
+        return new(type, (type is Media.Png or Media.Jpeg) && Length > OcrFormats.MaxImageBytes);
+    }
+
     /// <summary>Move the complete staged file into its final private location.</summary>
     public void Publish() => File.Move(TemporaryPath, FinalPath);
     // Never delete a published original: a lost commit acknowledgement is ambiguous.

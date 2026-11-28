@@ -1,5 +1,4 @@
-using HackthonSpurs.Worker.Ocr;
-using HackthonSpurs.Worker.Processing.Queues;
+using HackthonSpurs.Application.Processing;
 using HackthonSpurs.Resources;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -7,11 +6,10 @@ using Npgsql;
 
 namespace HackthonSpurs.Worker.Processing;
 
-/// <summary>Coordinate claiming, reading and publishing jobs for one reader lane.</summary>
-/// <param name="queue">Lease-aware document job store.</param>
-/// <param name="reader">Client for the configured private reader.</param>
+/// <summary>Poll the active reading lane and log safe outcomes.</summary>
+/// <param name="reading">Per-attempt reading use case.</param>
 /// <param name="log">Logger for operational outcomes.</param>
-internal sealed class DocumentWorker(JobQueue queue, ReaderClient reader, ILogger<DocumentWorker> log) : BackgroundService
+internal sealed class DocumentWorker(ProcessReadingJob reading, ILogger<DocumentWorker> log) : BackgroundService
 {
     /// <summary>Process eligible claims until shutdown, backing off when the queue is unavailable.</summary>
     /// <param name="stopping">Host shutdown token.</param>
@@ -21,13 +19,10 @@ internal sealed class DocumentWorker(JobQueue queue, ReaderClient reader, ILogge
         {
             try
             {
-                if (await queue.ClaimAsync(stopping) is { } job)
+                if (await reading.RunOnceAsync(stopping) is { } attempt)
                 {
-                    var outcome = await reader.ReadAsync(job, stopping);
-                    var saved = await queue.FinishAsync(job, outcome, stopping);
                     if (log.IsEnabled(LogLevel.Information))
-                        log.LogInformation(ResourceText.JobLog, job.Id, job.Attempt,
-                            saved ? outcome.Error ?? Wire.Published : Wire.LeaseLost);
+                        log.LogInformation(ResourceText.JobLog, attempt.Id, attempt.Attempt, attempt.Outcome);
                     continue;
                 }
             }

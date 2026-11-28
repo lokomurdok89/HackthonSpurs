@@ -1,7 +1,6 @@
 using HackthonSpurs.Api.Http;
 using HackthonSpurs.Resources;
-using HackthonSpurs.Documents.Commands;
-using HackthonSpurs.Documents.Storage;
+using HackthonSpurs.Application.Commands;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Net.Http.Headers;
 
@@ -15,7 +14,7 @@ internal static class UploadEndpoint
     /// <param name="handler">Handler for this document operation.</param>
     /// <param name="config">Local reader enablement settings.</param>
     /// <param name="ct">Cancellation for the current operation.</param>
-    public static async Task<IResult> Handle(HttpRequest request, OriginalStore store, AcceptDocumentHandler handler, IConfiguration config, CancellationToken ct)
+    public static async Task<IResult> Handle(HttpRequest request, IOriginalStaging store, AcceptDocumentHandler handler, IConfiguration config, CancellationToken ct)
     {
         if (!Guid.TryParseExact(request.Headers[Wire.OperationKey], "D", out var key)) return ApiProblems.Invalid();
         if (!MediaTypeHeaderValue.TryParse(request.ContentType, out var type) ||
@@ -31,7 +30,7 @@ internal static class UploadEndpoint
         if (string.IsNullOrWhiteSpace(boundary) || boundary.Length > Policy.MaxBoundary) return ApiProblems.Invalid();
         // Parse exactly one part. Avoid form buffering and never use the supplied name as a filesystem path.
         var reader = new MultipartReader(boundary, request.Body);
-        StagedFile? file = null;
+        IStagedOriginal? file = null;
         try
         {
             var part = await ReadPartAsync(reader, ct);
@@ -41,7 +40,7 @@ internal static class UploadEndpoint
                 MediaTypeHeaderValue.TryParse(part.ContentType, out var media) ? media.MediaType.Value!.ToLowerInvariant() : "";
             file = await store.StageAsync(part.Body, ct);
             if (file.Length == 0 || await ReadPartAsync(reader, ct) is not null) return ApiProblems.Invalid();
-            if (spur && file.Length > OcrFormats.MaxDocumentBytes) return ApiProblems.TooLarge();
+            if (spur && file.Length > Policy.MaxDocumentBytes) return ApiProblems.TooLarge();
             var receipt = await handler.HandleAsync(new AcceptDocument(key, file, declared, spur), ct);
             return receipt.Outcome switch
             {

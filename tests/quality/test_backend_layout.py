@@ -7,9 +7,11 @@ BACKEND = Path(__file__).resolve().parents[2] / "backend"
 PREFIX = "HackthonSpurs."
 # These are allowed reference edges, not a requirement to reference an unused project.
 ALLOWED = {
-    "Api": {"Documents", "Resources"},
-    "Worker": {"Documents", "Resources"},
-    "Documents": {"Resources"},
+    "Api": {"Application", "Domain", "Documents", "Resources"},
+    "Worker": {"Application", "Documents", "Resources"},
+    "Documents": {"Application", "Domain", "Resources"},
+    "Application": {"Domain", "Resources"},
+    "Domain": set(),
     "Resources": set(),
     "Reader.Spur": {"Resources"},
     "Reader.Fixture": {"Resources"},
@@ -36,13 +38,57 @@ class BackendBoundaries(unittest.TestCase):
 
     def test_host_and_document_roots_are_not_feature_folders(self):
         """Keep endpoint, queue and entity implementations out of the multi-feature project roots."""
-        for suffix in ("Api", "Documents", "Worker", "Reader.Spur"):
+        for suffix in ("Api", "Documents", "Worker", "Reader.Spur", "Application", "Domain"):
             project = BACKEND / (PREFIX + suffix)
             startup_files = {"GlobalUsings.cs", "AssemblyInfo.cs"}
-            if suffix != "Documents":
+            if suffix in ("Api", "Worker", "Reader.Spur"):
                 startup_files.add("Program.cs")
             misplaced = {f.name for f in project.glob("*.cs")} - startup_files
             self.assertFalse(misplaced, f"Place feature implementations in an owned folder: {misplaced}")
+
+    def test_inner_projects_have_no_framework_or_provider_dependencies(self):
+        """Domain, use cases and the shared vocabulary build without any persistence, network or host packages."""
+        for suffix in ("Domain", "Application", "Resources"):
+            project = BACKEND / (PREFIX + suffix) / (PREFIX + suffix + ".csproj")
+            xml = ElementTree.parse(project)
+            with self.subTest(layer=suffix):
+                self.assertEqual(xml.getroot().get("Sdk"), "Microsoft.NET.Sdk")
+                for tag in ("PackageReference", "FrameworkReference", "Reference", "COMReference"):
+                    self.assertEqual(list(xml.iter(tag)), [], f"{suffix} must not acquire an external {tag}")
+                self.assertFalse(any(n.get("Link") or ".." in n.get("Include", "")
+                                     for n in xml.iter("Compile")), "Do not compile adapter sources into the core")
+
+    def test_application_harness_has_no_adapter_dependencies(self):
+        """Unit scenarios must execute against the application boundary alone, with no production adapters."""
+        harness = BACKEND.parent / "tests/application/Application.Tests.csproj"
+        tree = ElementTree.parse(harness)
+        targets = {(harness.parent / node.attrib["Include"].replace(chr(92), "/")).resolve()
+                   for node in tree.iter("ProjectReference")}
+        application = BACKEND / (PREFIX + "Application") / (PREFIX + "Application.csproj")
+        self.assertEqual(targets, {application})
+        for tag in ("PackageReference", "FrameworkReference", "Reference"):
+            self.assertFalse(list(tree.iter(tag)), f"The pure harness must not acquire {tag}")
+
+    def test_use_cases_do_not_open_files_or_network_connections(self):
+        """The SDK provides HTTP/filesystem classes even without packages; keep those effects in adapters."""
+        forbidden = (r"\b(?:HttpClient|HttpRequestMessage|HttpResponseMessage|SocketsHttpHandler|"
+                     r"TcpClient|FileStream|FileInfo|DirectoryInfo)\b|\b(?:File|Directory)\.\w+\(")
+        for layer in ("Domain", "Application"):
+            for path in (BACKEND / (PREFIX + layer)).rglob("*.cs"):
+                if {"obj", "bin"}.intersection(path.relative_to(BACKEND).parts):
+                    continue
+                source = path.read_text(encoding="utf-8")
+                code = "\n".join(line for line in source.splitlines() if not line.lstrip().startswith("//"))
+                self.assertNotRegex(code, forbidden, f"{path.name} accesses an external adapter directly")
+
+    def test_document_endpoints_do_not_bind_infrastructure(self):
+        """Catch coupling that a project-level check cannot: the API also contains the composition root."""
+        endpoints = BACKEND / "HackthonSpurs.Api" / "Endpoints"
+        for path in [*endpoints.joinpath("Documents").glob("**/*.cs"), *endpoints.joinpath("Search").glob("**/*.cs")]:
+            text = path.read_text(encoding="utf-8")
+            code = "\n".join(line for line in text.splitlines() if not line.lstrip().startswith("//"))
+            self.assertNotRegex(code, r"\b(?:HackthonSpurs\.Documents|Microsoft\.EntityFrameworkCore|Npgsql|Pgvector)\b",
+                                f"{path.name} should depend on use cases/read ports, not database or storage adapters")
 
     def test_references_and_native_ocr_boundary(self):
         """Prevent host-to-host coupling and keep the native Magick package in the disposable helper process."""

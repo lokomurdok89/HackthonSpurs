@@ -1,22 +1,18 @@
 using HackthonSpurs.Resources;
 using System.Globalization;
-using HackthonSpurs.Documents.Embeddings;
+using HackthonSpurs.Application.Embeddings;
+using HackthonSpurs.Application.Processing;
 using Npgsql;
-using Pgvector;
 
 namespace HackthonSpurs.Worker.Indexing;
 
-internal sealed record IndexClaim(Guid Id, Guid Token, int Attempt, string Reading);
-
 /// <summary>Claim OCR index work and publish one vector generation transactionally.</summary>
 /// <param name="data">PostgreSQL connection source.</param>
-internal sealed class IndexQueue(NpgsqlDataSource data)
+internal sealed class IndexQueue(NpgsqlDataSource data) : IIndexJobs
 {
-    internal const int AttemptLimit = Policy.MaxAttempts;
-
     /// <summary>Claim an eligible index job or fail its final expired lease.</summary>
     /// <param name="ct">Cancellation for the lease operation.</param>
-    internal async Task<IndexClaim?> ClaimAsync(CancellationToken ct)
+    public async Task<IndexClaim?> ClaimAsync(CancellationToken ct)
     {
         await using var cmd = data.CreateCommand("""
             WITH candidate AS (
@@ -37,7 +33,7 @@ internal sealed class IndexQueue(NpgsqlDataSource data)
             RETURNING i."DocumentId", i."LeaseToken", i."Attempt", d."ResultJson"
             """);
         cmd.Parameters.AddWithValue(Guid.NewGuid());
-        cmd.Parameters.AddWithValue(AttemptLimit);
+        cmd.Parameters.AddWithValue(Policy.MaxAttempts);
         cmd.Parameters.AddWithValue(Errors.IndexLeaseExpired.Code);
         cmd.Parameters.AddWithValue(TimeSpan.FromMinutes(Policy.LeaseMinutes));
         await using var rows = await cmd.ExecuteReaderAsync(ct);
@@ -48,9 +44,9 @@ internal sealed class IndexQueue(NpgsqlDataSource data)
     /// <summary>Apply a classified failure only while the current attempt owns its lease.</summary>
     /// <param name="claim">Attempt ownership and current attempt number.</param>
     /// <param name="code">Safe error identifier for terminal failures.</param>
-    /// <param name="retryable">Whether to schedule a bounded delayed retry.</param>
+    /// <param name="retryDelay">Delay before another attempt; null for terminal failure.</param>
     /// <param name="ct">Cancellation for the database operation.</param>
-    internal async Task<bool> FailAsync(IndexClaim claim, string code, bool retryable, CancellationToken ct)
+    public async Task<bool> FailAsync(IndexClaim claim, string code, TimeSpan? retryDelay, CancellationToken ct)
     {
         await using var cmd = data.CreateCommand("""
             UPDATE document_index_jobs SET "State" = CASE WHEN $3 THEN 'Queued' ELSE 'Failed' END,
@@ -61,9 +57,9 @@ internal sealed class IndexQueue(NpgsqlDataSource data)
             """);
         cmd.Parameters.AddWithValue(claim.Id);
         cmd.Parameters.AddWithValue(claim.Token);
-        cmd.Parameters.AddWithValue(retryable && claim.Attempt < AttemptLimit);
+        cmd.Parameters.AddWithValue(retryDelay.HasValue);
         cmd.Parameters.AddWithValue(code);
-        cmd.Parameters.AddWithValue(TimeSpan.FromSeconds(claim.Attempt == 1 ? Policy.FirstBackoffSeconds : Policy.SecondBackoffSeconds));
+        cmd.Parameters.AddWithValue(retryDelay.GetValueOrDefault());
         return await cmd.ExecuteNonQueryAsync(ct) == 1;
     }
 
@@ -73,8 +69,8 @@ internal sealed class IndexQueue(NpgsqlDataSource data)
     /// <param name="vectors">Validated vectors in exactly the same order as the excerpts.</param>
     /// <param name="profile">Model identity, revision and dimensions that produced the vectors.</param>
     /// <param name="ct">Cancellation for the database operation.</param>
-    internal async Task<bool> PublishAsync(IndexClaim claim, IReadOnlyList<OcrIndexChunk> chunks,
-        IReadOnlyList<Vector> vectors, SpurEmbeddingSettings profile, CancellationToken ct)
+    public async Task<bool> PublishAsync(IndexClaim claim, IReadOnlyList<OcrIndexChunk> chunks,
+        IReadOnlyList<ReadOnlyMemory<float>> vectors, EmbeddingProfile profile, CancellationToken ct)
     {
         if (chunks.Count != vectors.Count || chunks.Count == 0) throw new ArgumentException(ResourceText.InvalidVectorBatch, nameof(vectors));
         await using var connection = await data.OpenConnectionAsync(ct);
@@ -116,6 +112,6 @@ internal sealed class IndexQueue(NpgsqlDataSource data)
 
     /// <summary>Format a validated vector for the server-side vector cast using invariant numeric syntax.</summary>
     /// <param name="vector">Finite vector verified by the embedding adapter.</param>
-    private static string VectorLiteral(Vector vector) =>
+    private static string VectorLiteral(ReadOnlyMemory<float> vector) =>
         "[" + string.Join(',', vector.ToArray().Select(v => v.ToString("R", CultureInfo.InvariantCulture))) + "]";
 }
