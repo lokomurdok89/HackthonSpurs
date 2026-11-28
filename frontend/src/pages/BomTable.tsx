@@ -8,7 +8,7 @@ interface BomTableProps {
   onOpenSource: (n: number) => void;
 }
 
-/** Bill of materials, largest cost first. Stacks into one entry per line on phones. */
+/** Render the BOM and total with citation numbers supplied by the lookup and a callback to open a selected source. */
 export function BomTable({ bom, total, numberOf, onOpenSource }: BomTableProps) {
   return (
     <section className="pe__bom" aria-labelledby="bom-title">
@@ -74,7 +74,7 @@ export function BomTable({ bom, total, numberOf, onOpenSource }: BomTableProps) 
   );
 }
 
-/** Every cited document, numbered in reading order. */
+/** Render the given cited sources in reference order. */
 export function SourcesList({ sources }: { sources: SourceRef[] }) {
   return (
     <section className="sources" aria-labelledby="src-title">

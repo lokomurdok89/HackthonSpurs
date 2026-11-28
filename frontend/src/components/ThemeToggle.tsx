@@ -4,10 +4,12 @@ import { MoonIcon, SunIcon } from "./icons";
 type Theme = "light" | "dark";
 const KEY = "origin-vault-theme";
 
+/** Resolve the color theme from the browser's operating-system preference. */
 function systemTheme(): Theme {
   return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
+/** Read the last explicit theme choice when browser storage is available. */
 function storedTheme(): Theme | null {
   try {
     const v = localStorage.getItem(KEY);

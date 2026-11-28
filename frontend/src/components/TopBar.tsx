@@ -7,11 +7,13 @@ interface TopBarProps {
   sidebarOpen: boolean;
 }
 
+/** Render branding, the OCR search shortcut and the control for the given sidebar state and toggle action. */
 export function TopBar({ onToggleSidebar, sidebarOpen }: TopBarProps) {
-  const searchRef = useRef<HTMLInputElement>(null);
+  const searchRef = useRef<HTMLAnchorElement>(null);
 
-  // "/" jumps to search from anywhere, unless the person is already typing in a field.
+  // "/" focuses the search shortcut unless the person is already typing in a field.
   useEffect(() => {
+    /** Focus the search shortcut on an unmodified slash key event outside editable fields. */
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "/" || e.metaKey || e.ctrlKey || e.altKey) return;
       const t = e.target as HTMLElement | null;
@@ -41,22 +43,11 @@ export function TopBar({ onToggleSidebar, sidebarOpen }: TopBarProps) {
         <span className="brand__name">Origin Vault</span>
       </a>
 
-      <form className="search" role="search" onSubmit={(e) => e.preventDefault()}>
-        <label htmlFor="global-search" className="visually-hidden">
-          Search products, parts, suppliers and documents
-        </label>
+      <a href="#/search" className="search" ref={searchRef} aria-keyshortcuts="/">
         <SearchIcon size={15} className="search__icon" />
-        <input
-          ref={searchRef}
-          id="global-search"
-          type="search"
-          placeholder="Search parts, suppliers, heats, documents"
-          aria-keyshortcuts="/"
-        />
-        <kbd className="search__key" aria-hidden="true">
-          /
-        </kbd>
-      </form>
+        <span>Search OCR documents</span>
+        <kbd className="search__key" aria-hidden="true">/</kbd>
+      </a>
 
       <div className="topbar__right">
         <span className="vault-status" title="Files stay in storage the company controls">

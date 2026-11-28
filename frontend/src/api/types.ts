@@ -1,4 +1,4 @@
-// Types mirroring docs/api/openapi.json (v0.1.0). The OpenAPI file is the source of truth.
+// Types mirroring docs/api/openapi.json (v0.2.0). The OpenAPI file is the source of truth.
 
 export type Uuid = string;
 
@@ -56,6 +56,16 @@ export const ACCEPTED_TYPES = [
 
 export const ACCEPT_ATTRIBUTE = ".pdf,.xlsx,.csv";
 
+export type IndexState = JobState | "AwaitingReading" | "NotApplicable" | "NotIndexed" | "Skipped";
+
+export interface DocumentIndexStatus {
+  id: Uuid;
+  state: IndexState;
+  attempt: number;
+  chunkCount: number;
+  failureCode?: string;
+}
+
 export interface SearchStats {
   embeddingsConfigured: boolean;
   model: string;
@@ -68,8 +78,9 @@ export interface SemanticSearchHit {
   chunkId: Uuid;
   documentId: Uuid;
   chunkIndex: number;
-  sourceName?: string | null;
+  sourceName: string | null;
   locator: string;
+  pageLocator: Extract<Locator, { kind: "page" }>;
   text: string;
   model: string;
   score: number;
@@ -81,8 +92,20 @@ export interface SemanticSearchResponse {
   results: SemanticSearchHit[];
 }
 
-export interface IndexDocumentResponse {
-  documentId: Uuid;
-  chunkCount: number;
+export interface DocumentChunkView {
+  chunkId: Uuid;
+  chunkIndex: number;
+  locator: string;
+  text: string;
   model: string;
+}
+
+export interface DocumentDetailView {
+  documentId: Uuid;
+  sourceName?: string | null;
+  mediaType: string;
+  byteCount: number;
+  state: string;
+  createdAt: string;
+  chunks: DocumentChunkView[];
 }

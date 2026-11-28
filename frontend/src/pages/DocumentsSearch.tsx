@@ -1,227 +1,143 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { apiMode } from "../api/client";
 import { ApiError } from "../api/errors";
-import { getSearchStats, semanticSearch, uploadAndIndexDocument } from "../api/search";
-import { ACCEPT_ATTRIBUTE, type SearchStats, type SemanticSearchHit } from "../api/types";
-import "../styles/ui.css";
+import { getSearchStats, semanticSearch } from "../api/search";
+import type { SearchStats, SemanticSearchHit, SemanticSearchResponse } from "../api/types";
+import { SearchExcerpt } from "./SearchExcerpt";
 import "./DocumentsSearch.css";
+import "./Documents.css";
 
-const SAMPLE_QUERIES = [
-  "CUSMA country of origin certificate",
-  "material grade and heat number",
-  "supplier invoice and tariff surcharge",
-  "ISO 9001 calibration record",
-];
+const RECEIPT_PATTERN = /^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i;
 
-export function DocumentsSearch() {
-  const [stats, setStats] = useState<SearchStats | null>(null);
-  const [statsError, setStatsError] = useState<string | null>(null);
+/** Map API search errors to fixed messages that do not display provider diagnostics.
+ * @param error - Request failure to classify.
+ */
+function searchError(error: unknown) {
+  if (error instanceof ApiError && error.problem.code === "embeddings_not_configured") return "Semantic search is not enabled.";
+  if (error instanceof ApiError && error.problem.code === "invalid_search") return "Enter a valid search query.";
+  return "Search is temporarily unavailable. Try again in a moment.";
+}
 
-  const [query, setQuery] = useState("");
+/** Render one search hit and link back to its exact OCR page in the source receipt.
+ * @param props - Component inputs.
+ * @param props.query - Submitted query used for highlighting.
+ * @param props.hit - Ranked excerpt with a page locator.
+ */
+function SearchHit({ hit, query }: { hit: SemanticSearchHit; query: string }) {
+  const { page } = hit.pageLocator;
+  return (
+    <li className="ds__hit">
+      <div className="ds__hit-head">
+        <a href={`#/documents/${hit.documentId}/page/${page}`}>Open reading · Page {page}</a>
+        <span>Similarity {Math.round(hit.score * 100)}%</span>
+      </div>
+      <small>Document {hit.documentId.slice(0, 8)} · {hit.model}</small>
+      <SearchExcerpt text={hit.text} query={query} />
+    </li>
+  );
+}
+
+/** Show a read-only search workspace; uploads stay on the Documents form.
+ * @param props - Component inputs.
+ * @param props.embedded - Show the panel inside the document workspace.
+ * @param props.documentId - Optional receipt scope supplied by the route.
+ */
+export function DocumentsSearch({ documentId, embedded = false }: { documentId: string; embedded?: boolean }) {
+  const [stats, setStats] = useState<SearchStats>();
+  const [statsError, setStatsError] = useState(false);
+  const [revision, setRevision] = useState(0);
   const [topK, setTopK] = useState(8);
-  const [searching, setSearching] = useState(false);
-  const [searchError, setSearchError] = useState<string | null>(null);
-  const [hits, setHits] = useState<SemanticSearchHit[] | null>(null);
-  const [activeModel, setActiveModel] = useState<string | null>(null);
-
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadNotice, setUploadNotice] = useState<string | null>(null);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-
-  const loadStats = useCallback(async () => {
-    setStatsError(null);
-    try {
-      const next = await getSearchStats();
-      setStats(next);
-    } catch (err) {
-      setStatsError(err instanceof ApiError ? err.problem.title : "Could not reach the backend API.");
-    }
-  }, []);
+  const [query, setQuery] = useState("");
+  const [response, setResponse] = useState<SemanticSearchResponse>();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const active = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    void loadStats();
-  }, [loadStats]);
+    if (apiMode !== "http") return;
+    const controller = new AbortController();
+    const { signal } = controller;
+    void getSearchStats(signal).then((value) => {
+      if (!signal.aborted) { setStats(value); setStatsError(false); }
+    }).catch(() => {
+      if (!signal.aborted) { setStats(undefined); setStatsError(true); }
+    });
+    return () => controller.abort();
+  }, [revision]);
 
-  async function runSearch(searchText: string) {
-    const trimmed = searchText.trim();
-    if (!trimmed) return;
-    setSearching(true);
-    setSearchError(null);
+  useEffect(() => () => active.current?.abort(), []);
+
+  const validScope = !documentId || RECEIPT_PATTERN.test(documentId);
+  /** Submit the bounded query and render results only while this search view is active.
+   * @param event - Semantic search form submission.
+   */
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (!validScope || !query.trim() || active.current || !stats?.embeddingsConfigured) return;
+    const controller = new AbortController();
+    active.current = controller;
+    setBusy(true);
+    setError("");
+    setResponse(undefined);
     try {
-      const res = await semanticSearch(trimmed, topK);
-      setHits(res.results);
-      setActiveModel(res.model);
-    } catch (err) {
-      setHits(null);
-      setSearchError(err instanceof ApiError ? err.problem.title : "Search request failed.");
+      const value = await semanticSearch(query.trim(), documentId, topK, controller.signal);
+      if (!controller.signal.aborted) setResponse(value);
+    } catch (reason) {
+      if (!controller.signal.aborted) setError(searchError(reason));
     } finally {
-      setSearching(false);
-    }
-  }
-
-  function onSearchSubmit(e: FormEvent) {
-    e.preventDefault();
-    void runSearch(query);
-  }
-
-  async function onUploadSubmit(e: FormEvent) {
-    e.preventDefault();
-    if (!selectedFile) return;
-    setUploading(true);
-    setUploadError(null);
-    setUploadNotice(null);
-    try {
-      const { receipt, indexed } = await uploadAndIndexDocument(selectedFile);
-      setUploadNotice(
-        `Uploaded ${selectedFile.name} (${receipt.id.slice(0, 8)}…) and indexed ${indexed.chunkCount} chunk(s) with ${indexed.model}.`,
-      );
-      setSelectedFile(null);
-      await loadStats();
-    } catch (err) {
-      setUploadError(err instanceof ApiError ? err.problem.title : "Upload or indexing failed.");
-    } finally {
-      setUploading(false);
+      if (!controller.signal.aborted) setBusy(false);
+      active.current = null;
     }
   }
 
   return (
-    <div className="ds">
-      <div className="ds__header">
+    <section className="ds">
+      <header className="ds__header">
         <div>
-          <h1>Documents &amp; Semantic Search</h1>
-          <p className="muted small" style={{ margin: 0 }}>
-            Upload PDF, XLSX, or CSV evidence and search across chunks using SPUR embeddings + pgvector.
-          </p>
+          {embedded ? <h2>Semantic search</h2> : <h1>Semantic search</h1>}
+          <p>Search indexed OCR text. Each excerpt links to its page in the reading.</p>
         </div>
-
-        <div className="ds__stats">
-          {stats ? (
-            <>
-              <span className={`chip ${stats.embeddingsConfigured ? "ds__chip--ok" : "ds__chip--warn"}`}>
-                {stats.embeddingsConfigured ? `SPUR ready · ${stats.model}` : "SPUR_API_KEY not set"}
-              </span>
-              <span className="chip ds__chip--neutral">
-                {stats.indexedDocuments}/{stats.totalDocuments} docs indexed
-              </span>
-              <span className="chip ds__chip--neutral">{stats.totalChunks} chunks</span>
-            </>
-          ) : (
-            <span className="chip ds__chip--warn">
-              {statsError ? "Backend offline" : "Connecting…"}
-            </span>
-          )}
-          <button type="button" className="btn btn--sm" onClick={() => void loadStats()}>
-            Refresh
-          </button>
-        </div>
-      </div>
-
-      {statsError && <div className="ds__alert ds__alert--error">{statsError}</div>}
-
-      <div className="ds__grid">
-        <section className="panel">
-          <div className="panel__head">
-            <h2>Upload &amp; Index Document</h2>
-            <span className="muted small">PDF, XLSX, CSV (up to 20 MiB)</span>
-          </div>
-          <form className="ds__upload-row" onSubmit={(e) => void onUploadSubmit(e)}>
-            <input
-              type="file"
-              accept={ACCEPT_ATTRIBUTE}
-              onChange={(e) => {
-                setSelectedFile(e.target.files?.[0] ?? null);
-                setUploadError(null);
-                setUploadNotice(null);
-              }}
-            />
-            <button
-              type="submit"
-              className="btn btn--primary"
-              disabled={!selectedFile || uploading}
-            >
-              {uploading ? "Uploading & embedding…" : "Upload & index"}
-            </button>
-          </form>
-          {uploadNotice && <div className="ds__alert ds__alert--ok">{uploadNotice}</div>}
-          {uploadError && <div className="ds__alert ds__alert--error">{uploadError}</div>}
-        </section>
-
-        <section className="panel">
-          <div className="panel__head">
-            <h2>Semantic Search</h2>
-            {activeModel && <span className="muted small mono">model: {activeModel}</span>}
-          </div>
-
-          <form className="ds__search-row" onSubmit={onSearchSubmit}>
-            <input
-              type="search"
-              className="ds__input"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Ask in English or French (e.g. 'Where was steel heat 6061-T6 sourced?')"
-              aria-label="Semantic search query"
-            />
-            <select
-              className="ds__select"
-              value={topK}
-              onChange={(e) => setTopK(Number(e.target.value))}
-              aria-label="Result limit"
-            >
-              <option value={5}>Top 5</option>
-              <option value={8}>Top 8</option>
-              <option value={15}>Top 15</option>
-            </select>
-            <button type="submit" className="btn btn--primary" disabled={searching || !query.trim()}>
-              {searching ? "Searching…" : "Search"}
-            </button>
-          </form>
-
-          <div className="ds__samples">
-            <span className="muted small">Try:</span>
-            {SAMPLE_QUERIES.map((sample) => (
-              <button
-                key={sample}
-                type="button"
-                className="ds__sample-btn"
-                onClick={() => {
-                  setQuery(sample);
-                  void runSearch(sample);
-                }}
-              >
-                {sample}
+        {!embedded && <a href="#/documents">Go to Documents</a>}
+      </header>
+      {apiMode !== "http" ? <p className="notice">Search requires the local API and SPUR indexing; no mock results are shown.</p> :
+        <div className="panel">
+          {stats && <p>{stats.embeddingsConfigured
+            ? `${stats.indexedDocuments}/${stats.totalDocuments} indexed documents · ${stats.totalChunks} excerpts · ${stats.model}`
+            : "Semantic search is not enabled."}</p>}
+          {!stats && !statsError && <p role="status">Checking search availability…</p>}
+          {statsError && <p role="alert">Cannot check search availability. Refresh to try again.</p>}
+          <button className="btn btn--sm" type="button" onClick={() => setRevision((n) => n + 1)}>Refresh index stats</button>
+          {documentId && validScope && <p>Searching one receipt. <a href="#/search">Search all documents</a></p>}
+          {!validScope && <p role="alert">Invalid document link. <a href="#/search">Search all documents</a></p>}
+          <form onSubmit={submit}>
+            <label htmlFor="semantic-query">Search query</label>
+            <div className="ds__search-row">
+              <input className="ds__input" type="search" id="semantic-query" value={query} maxLength={1000} required
+                disabled={busy || !stats?.embeddingsConfigured || !validScope}
+                onChange={(event) => setQuery(event.target.value)} />
+              <select className="ds__select" aria-label="Result limit" value={topK} disabled={busy}
+                onChange={(e) => setTopK(Number(e.target.value))}>
+                {[5, 8, 15].map((value) => <option key={value} value={value}>Top {value}</option>)}
+              </select>
+              <button type="submit" className="btn btn--primary"
+                disabled={busy || !query.trim() || !stats?.embeddingsConfigured || !validScope}>
+                {busy ? "Searching…" : "Search"}
               </button>
-            ))}
-          </div>
-
-          {searchError && <div className="ds__alert ds__alert--error">{searchError}</div>}
-
-          {hits !== null && (
-            <div className="ds__results">
-              {hits.length === 0 ? (
-                <p className="muted small" style={{ margin: 0 }}>
-                  No indexed chunks matched yet. Upload and index a document above to populate the vector store.
-                </p>
-              ) : (
-                hits.map((hit) => (
-                  <article key={hit.chunkId} className="ds__hit">
-                    <div className="ds__hit-head">
-                      <div className="ds__hit-meta">
-                        <span className="strong">{hit.sourceName ?? `Document ${hit.documentId.slice(0, 8)}`}</span>
-                        <span className="chip ds__chip--neutral">{hit.locator}</span>
-                        <span className="muted mono small">{hit.documentId.slice(0, 8)}</span>
-                      </div>
-                      <span className="chip ds__chip--ok">
-                        {Math.round(hit.score * 100)}% match
-                      </span>
-                    </div>
-                    <p className="ds__hit-text">{hit.text}</p>
-                  </article>
-                ))
-              )}
             </div>
-          )}
-        </section>
-      </div>
-    </div>
+          </form>
+          <div className="ds__samples" aria-label="Example queries">
+            {["CUSMA country of origin certificate", "material grade and heat number", "supplier invoice and tariff surcharge", "ISO 9001 calibration record"].map((sample) =>
+              <button className="btn btn--sm" type="button" disabled={busy} key={sample} onClick={() => setQuery(sample)}>{sample}</button>)}
+          </div>
+          <p className="ds__hint">Submitting sends the query text to SPUR. Similarity indicates related text, not verified evidence.</p>
+          {error && <p role="alert">{error}</p>}
+          {response && <div aria-live="polite">
+            <h2>Search results</h2>
+            {response.results.length === 0
+              ? <p>No searchable excerpts for this scope.</p>
+              : <ol className="ds__results">{response.results.map((hit) => <SearchHit key={hit.chunkId} hit={hit} query={response.query} />)}</ol>}
+          </div>}
+        </div>}
+    </section>
   );
 }

@@ -5,9 +5,10 @@ import "./ReviewQueue.css";
 
 type Decisions = Record<string, Decision>;
 
+/** Build a stable field key from its parent review item and field identifiers. */
 const keyOf = (itemId: string, fieldId: string) => `${itemId}/${fieldId}`;
 
-/** Lets long file names wrap after an underscore, hyphen or dot instead of mid-word. */
+/** Wrap the supplied filename after common separators without changing the name. */
 function FileName({ name }: { name: string }) {
   const parts = name.split(/(?<=[_.-])/);
   return (
@@ -22,16 +23,19 @@ function FileName({ name }: { name: string }) {
   );
 }
 
-export function ReviewQueue({ items }: { items: ReviewItem[] }) {
+/** Render the provided demo review items and either allow or suppress local decisions according to the role. */
+export function ReviewQueue({ items, canReview }: { items: ReviewItem[]; canReview: boolean }) {
   const [selectedId, setSelectedId] = useState(items[0]?.id);
   const [decisions, setDecisions] = useState<Decisions>({});
   const [hoverField, setHoverField] = useState<string | undefined>();
 
   const item = items.find((i) => i.id === selectedId) ?? items[0];
 
+  /** Retrieve the decision for the supplied item and field or mark it pending. */
   const decisionFor = (itemId: string, fieldId: string): Decision =>
     decisions[keyOf(itemId, fieldId)] ?? { status: "pending" };
 
+  /** Count the fields still pending on the supplied review item. */
   const pendingIn = (it: ReviewItem) => it.fields.filter((f) => decisionFor(it.id, f.id).status === "pending").length;
 
   const totals = useMemo(() => {
@@ -43,9 +47,11 @@ export function ReviewQueue({ items }: { items: ReviewItem[] }) {
     return <p className="muted">Nothing is waiting for review.</p>;
   }
 
+  /** Apply the supplied decision to the selected item's indicated field. */
   const decide = (fieldId: string, d: Decision) =>
     setDecisions((prev) => ({ ...prev, [keyOf(item.id, fieldId)]: d }));
 
+  /** Approve high-confidence pending fields for the currently selected demo item. */
   const approveConfident = () =>
     setDecisions((prev) => {
       const next = { ...prev };
@@ -142,9 +148,9 @@ export function ReviewQueue({ items }: { items: ReviewItem[] }) {
             <h2 id="fields-title" className="rq__colhead">
               Extracted values
             </h2>
-            <button type="button" className="btn btn--sm" disabled={!confidentPending} onClick={approveConfident}>
+            {canReview && <button type="button" className="btn btn--sm" disabled={!confidentPending} onClick={approveConfident}>
               Approve {confidentPending} at 95%+
-            </button>
+            </button>}
           </div>
           <ul className="fields">
             {item.fields.map((f) => (
@@ -154,7 +160,7 @@ export function ReviewQueue({ items }: { items: ReviewItem[] }) {
                 decision={decisionFor(item.id, f.id)}
                 highlighted={hoverField === f.id}
                 onFocus={() => setHoverField(f.id)}
-                onDecide={(d) => decide(f.id, d)}
+                onDecide={canReview ? (d) => decide(f.id, d) : undefined}
               />
             ))}
           </ul>

@@ -10,7 +10,7 @@ import "./ProductEvidence.css";
 
 type TabId = "plan" | "suppliers" | "bom" | "sources";
 
-/** Shows a tab, then scrolls to and focuses an element inside it once it has rendered. */
+/** Focus the element at the supplied ID after rendering and position it using the selected block alignment. */
 function focusLater(id: string, block: ScrollLogicalPosition) {
   window.requestAnimationFrame(() => {
     const el = document.getElementById(id);
@@ -20,6 +20,7 @@ function focusLater(id: string, block: ScrollLogicalPosition) {
   });
 }
 
+/** Render the given product's evidence, findings, cost and supplier workspaces. */
 export function ProductEvidence({ product }: { product: Product }) {
   const { total, byBucket } = summarize(product.bom);
   const highCount = product.findings.filter((f) => f.severity === "high").length;
@@ -27,10 +28,12 @@ export function ProductEvidence({ product }: { product: Product }) {
   const { list: sources, numberOf } = numberSources(bom, product.findings);
 
   const [tab, setTab] = useState<TabId>("plan");
+  /** Open the evidence tab and focus the citation with the given number. */
   const goToSource = (n: number) => {
     setTab("sources");
     focusLater(`src-${n}`, "center");
   };
+  /** Open the supplier section and focus its content. */
   const goToSuppliers = () => {
     setTab("suppliers");
     focusLater("tabs", "start");

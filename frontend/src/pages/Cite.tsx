@@ -1,7 +1,7 @@
 import type { EvidenceType, SourceRef } from "../data/types";
 import { EVIDENCE } from "../data/evidence";
 
-/** Footnote-style number that opens the source in the Sources tab. */
+/** Render citation number n for the source and invoke the supplied source opener on activation. */
 export function Cite({ n, source, onOpen }: { n: number; source: SourceRef; onOpen: (n: number) => void }) {
   return (
     <button
@@ -16,7 +16,7 @@ export function Cite({ n, source, onOpen }: { n: number; source: SourceRef; onOp
   );
 }
 
-/** Evidence type as a status dot and label. */
+/** Render the evidence type and optional country code as a compact status stamp. */
 export function Stamp({ type, country }: { type: EvidenceType; country?: string }) {
   const meta = EVIDENCE[type];
   return (

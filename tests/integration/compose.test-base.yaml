@@ -1,0 +1,4 @@
+services:
+  postgres:
+    # Same Dockerfile/base/extensions, but teardown must never remove the developer image tag.
+    image: ${COMPOSE_PROJECT_NAME}-postgres-vector

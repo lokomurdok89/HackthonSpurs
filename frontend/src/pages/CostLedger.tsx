@@ -7,7 +7,7 @@ const BUCKETS: { id: OriginBucket; label: string; tone: string }[] = [
   { id: "unproven", label: "Not proven", tone: "warn" },
 ];
 
-/** Material cost grouped by how well each line's origin is proven. */
+/** Render nominal cost shares using the supplied bill of materials. */
 export function CostLedger({ bom }: { bom: BomLine[] }) {
   const { total, byBucket, largestUnknown } = summarize(bom);
   // Cost per evidence type inside each bucket, for the ledger and the bar.

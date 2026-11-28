@@ -1,7 +1,12 @@
 import { useEffect, useState } from "react";
-import { api, ApiError, describeProblem } from "../api/client";
+import { api, ApiError, apiMode, describeProblem } from "../api/client";
+import { DocumentInspector } from "./DocumentInspector";
+import { DocumentIndex } from "./DocumentIndex";
 import type { DocumentStatus, Locator, ReadResult } from "../api/types";
 
+/** Format page, worksheet-range or CSV coordinates for the receipt.
+ * @param loc - Source coordinates in the original.
+ */
 function locationText(loc: Locator) {
   switch (loc.kind) {
     case "page": return "Page " + loc.page;
@@ -10,15 +15,24 @@ function locationText(loc: Locator) {
   }
 }
 
-export function DocumentReading({ id }: { id: string }) {
+/** Poll a receipt until terminal and show its reading or failure.
+ * @param props - Component inputs.
+ * @param props.id - Document receipt identifier.
+ * @param props.canReindex - Whether the account can request new embeddings.
+ * @param props.page - Optional original page linked from search.
+ */
+export function DocumentReading({ id, page, canReindex }: { id: string; page?: number; canReindex: boolean }) {
   const [status, setStatus] = useState<DocumentStatus>();
   const [result, setResult] = useState<ReadResult>();
+  const [inspect, setInspect] = useState(false);
+  const [revision, setRevision] = useState(0);
   const [notice, setNotice] = useState("");
   useEffect(() => {
     const controller = new AbortController();
     const { signal } = controller;
     let timer: ReturnType<typeof setTimeout>;
     let delay = 2000;
+    /** Read status and fetch evidence only after completion; reschedule while pending. */
     async function check() {
       try {
         const current = await api.status(id, signal);
@@ -50,20 +64,34 @@ export function DocumentReading({ id }: { id: string }) {
     return () => { controller.abort(); clearTimeout(timer); };
   }, [id]);
 
+  useEffect(() => {
+    if (page && result) document.getElementById("ocr-transcript-page-" + page)?.focus();
+  }, [page, result]);
+
   return (
     <section className="panel">
       <h2>Document receipt</h2>
       <p>Keep this link to check the same document: <a href={"#/documents/" + id}>{id}</a></p>
       <div role="status">
         {status && <p>{status.state} · Attempt {status.attempt}</p>}
-        {status?.state === "Failed" && <p>{describeProblem("processing_failed")} ({status.failureCode})</p>}
+        {status?.state === "Failed" && <p>{describeProblem(status.failureCode ?? "processing_failed")} ({status.failureCode})</p>}
         {notice && <p>{notice}</p>}
       </div>
+      {apiMode === "http" && <><DocumentIndex key={revision} id={id} />
+        <button type="button" className="btn" aria-expanded={inspect} onClick={() => setInspect(!inspect)}>Inspect index excerpts</button>
+        {inspect && <DocumentInspector id={id} canReindex={canReindex} onClose={() => setInspect(false)}
+          onReindexed={() => setRevision((r) => r + 1)} />}
+      </>}
       {result && <>
         <h3>Reading · {result.readerVersion}</h3>
         {!result.fragments.length && <p>No readable fragments were returned.</p>}
-        <ul>{result.fragments.map((f, i) =>
-          <li key={i}><strong>{locationText(f.locator)}</strong> ({f.method}): {f.text}</li>)}</ul>
+        {result.fragments.map((f, i) => result.readerVersion.startsWith("spur/1:") && f.method === "ocr"
+          ? <div key={i}>
+            <label htmlFor={"ocr-transcript-page-" + (f.locator.kind === "page" ? f.locator.page : i)}><strong>OCR transcript</strong> · {locationText(f.locator)}</label>
+            <textarea id={"ocr-transcript-page-" + (f.locator.kind === "page" ? f.locator.page : i)} readOnly rows={8} value={f.text}
+              style={{ width: "100%", boxSizing: "border-box" }} />
+          </div>
+          : <p key={i}><strong>{locationText(f.locator)}</strong> ({f.method}): {f.text}</p>)}
         {result.warnings.length > 0 && <><h3>Reading warnings</h3><ul>{result.warnings.map((w, i) =>
           <li key={i}><strong>{locationText(w.locator)}</strong>: {w.message}</li>)}</ul></>}
       </>}

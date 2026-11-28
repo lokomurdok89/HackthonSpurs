@@ -1,0 +1,83 @@
+using HackthonSpurs.Application.Processing;
+using HackthonSpurs.Resources;
+using Npgsql;
+using NpgsqlTypes;
+
+namespace HackthonSpurs.Documents.Persistence.Processing;
+
+/// <summary>Apply atomic lease and publication operations for one processing lane.</summary>
+/// <param name="data">PostgreSQL connection source.</param>
+/// <param name="spur">Whether to claim only explicitly requested OCR jobs.</param>
+/// <param name="fixtureHash">SHA-256 digest allowlisted for the synthetic lane.</param>
+public sealed class PostgresReadingJobs(NpgsqlDataSource data, bool spur, string fixtureHash) : IReadingJobs
+{
+    // One statement: recover an expired job or take a queued one, never hold a lock during I/O.
+    /// <summary>Acquire an eligible job or fail a final expired lease using database time.</summary>
+    /// <param name="ct">Cancellation for the current operation.</param>
+    public async Task<ReadingClaim?> ClaimAsync(CancellationToken ct)
+    {
+        await using var cmd = data.CreateCommand("""
+            WITH candidate AS (
+              SELECT "Id" FROM document_jobs WHERE "SendToOcr" = $4
+                AND ($4 OR ("Sha256" = $1 AND "MediaType" = $8))
+              AND (("State" = 'Queued' AND ("NextAttemptAt" IS NULL OR "NextAttemptAt" <= now()))
+                OR ("State" = 'Processing' AND "LeaseUntil" <= now()))
+              ORDER BY "CreatedAt", "Id" LIMIT 1 FOR UPDATE SKIP LOCKED
+            )
+            UPDATE document_jobs j SET
+              "State" = CASE WHEN "Attempt" >= $3 THEN 'Failed' ELSE 'Processing' END,
+              "FailureCode" = CASE WHEN "Attempt" >= $3 THEN $5::text END,
+              "LeaseToken" = CASE WHEN "Attempt" < $3 THEN $2::uuid END,
+              "LeaseUntil" = CASE WHEN "Attempt" < $3 THEN now() + CASE WHEN $4 THEN $6::interval ELSE $7::interval END END,
+              "NextAttemptAt" = NULL, "Attempt" = LEAST("Attempt" + 1, $3)
+            FROM candidate c WHERE j."Id" = c."Id"
+            RETURNING j."Id", j."LeaseToken", j."Attempt", j."ByteCount", j."MediaType", j."Sha256"
+            """);
+        cmd.Parameters.AddWithValue(fixtureHash);
+        cmd.Parameters.AddWithValue(Guid.NewGuid());
+        cmd.Parameters.AddWithValue(spur ? Policy.OcrAttempts : Policy.MaxAttempts);
+        cmd.Parameters.AddWithValue(spur);
+        cmd.Parameters.AddWithValue(Errors.LeaseExpired.Code);
+        cmd.Parameters.AddWithValue(TimeSpan.FromMinutes(Policy.LeaseMinutes));
+        cmd.Parameters.AddWithValue(TimeSpan.FromSeconds(Policy.FixtureLeaseSeconds));
+        cmd.Parameters.AddWithValue(Media.Csv);
+        await using var r = await cmd.ExecuteReaderAsync(ct);
+        if (!await r.ReadAsync(ct) || r.IsDBNull(1)) return null;
+        return new(r.GetGuid(0), r.GetGuid(1), r.GetInt32(2), r.GetInt64(3), r.GetString(4), r.GetString(5), spur);
+    }
+
+    /// <summary>Publish a result, retry or fail only while the claim still owns its lease.</summary>
+    /// <param name="claim">Claim authorizing this attempt.</param>
+    /// <param name="completion">Decided publication, failure or retry.</param>
+    /// <param name="ct">Cancellation for the current operation.</param>
+    public async Task<bool> FinishAsync(ReadingClaim claim, ReadingCompletion completion, CancellationToken ct)
+    {
+        bool retry = completion.RetryDelay.HasValue;
+        await using var cmd = data.CreateCommand("""
+            WITH finished AS (
+              UPDATE document_jobs SET "State" = $3, "FailureCode" = $4, "ResultJson" = $5,
+                "NextAttemptAt" = CASE WHEN $3 = 'Queued' THEN now() + $6 END,
+                "LeaseToken" = NULL, "LeaseUntil" = NULL
+              WHERE "Id" = $1 AND "State" = 'Processing' AND "LeaseToken" = $2 AND "LeaseUntil" > now()
+              RETURNING "Id", "SendToOcr", "ResultJson"
+            ), queued AS (
+              INSERT INTO document_index_jobs ("DocumentId", "State", "CreatedAt", "Attempt", "ChunkCount")
+              SELECT "Id", CASE WHEN jsonb_array_length("ResultJson"->'fragments') > 0 THEN 'Queued' ELSE 'Skipped' END,
+                now(), 0, 0 FROM finished WHERE "SendToOcr" AND "ResultJson" IS NOT NULL
+              ON CONFLICT ("DocumentId") DO NOTHING
+            )
+            SELECT EXISTS (SELECT 1 FROM finished)
+            """);
+        cmd.Parameters.AddWithValue(claim.Id);
+        cmd.Parameters.AddWithValue(claim.Token);
+        cmd.Parameters.AddWithValue(completion.Json != null ? nameof(JobState.Completed) : retry ? nameof(JobState.Queued) : nameof(JobState.Failed));
+        cmd.Parameters.Add(new NpgsqlParameter
+        {
+            NpgsqlDbType = NpgsqlDbType.Text,
+            Value = (object?)completion.Error ?? DBNull.Value
+        });
+        cmd.Parameters.Add(new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Jsonb, Value = (object?)completion.Json ?? DBNull.Value });
+        cmd.Parameters.AddWithValue(completion.RetryDelay.GetValueOrDefault());
+        return await cmd.ExecuteScalarAsync(ct) is true;
+    }
+}

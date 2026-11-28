@@ -1,0 +1,12 @@
+# Test-only override: no provider client, credentials or external call.
+services:
+  api:
+    environment:
+      Spur__EmbeddingsEnabled: "false"
+  spur-reader:
+    build: !reset null
+    image: python:3.12-bookworm
+    environment: !reset {}
+    command: ["python", "-B", "/stub.py"]
+    volumes:
+      - ./tests/integration/ocr_stub.py:/stub.py:ro
