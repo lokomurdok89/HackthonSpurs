@@ -1,0 +1,240 @@
+/*
+ * Color tokens for the whole app. Change the palette here, nowhere else.
+ * Light is the default; dark follows the system setting unless the user
+ * picks a theme, which sets data-theme on <html>.
+ */
+
+:root {
+  /* Layout and type (theme-independent) */
+  --topbar-h: 56px;
+  --sidebar-w: 248px;
+  --font: "IBM Plex Sans", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  /* ---------- Light: deep navy + bright blue ---------- */
+  color-scheme: light;
+
+  --bg: #f5f7fa;
+  --surface: #ffffff;
+  --surface-2: #f9fafc;
+  --paper: #fffffe;
+  --ink: #111827;
+  --ink-2: #374151;
+  --muted: #5b6472;
+  --line: #e2e6ec;
+  --line-soft: #edf0f4;
+  --control-border: #c8cfd9;
+
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-soft: #e6eefd;
+  --accent-ink: #1e40af;
+  --link: #2563eb;
+  --on-accent: #ffffff;
+  --focus: #60a5fa;
+
+  --chrome: #0f1b2d;
+  --chrome-2: #1b2a40;
+  --chrome-line: #2a3a52;
+  --chrome-text: #c3ccd9;
+  --chrome-muted: #8c99ac;
+  --chrome-strong: #ffffff;
+  --chrome-accent: #7da7f7;
+
+  --badge: #c2410c;
+  --on-badge: #ffffff;
+
+  --ok-bg: #e3f2e8;
+  --ok-fg: #1f5c34;
+  --ok-border: #1f6b3a;
+  --ok-surface: #f4faf6;
+  --warn-bg: #fbf1d6;
+  --warn-fg: #6e4a07;
+  --danger-bg: #fbe7e4;
+  --danger-fg: #8f1f17;
+  --danger-surface: #fbf3f1;
+  --orange-bg: #fbe7dc;
+  --orange-fg: #8a2c07;
+  --neutral-bg: #eef0f3;
+  --neutral-fg: #3d434a;
+  --info-bg: #e6eefd;
+  --info-fg: #1e3a8a;
+  --value-warn: #9a3412;
+
+  --highlight-bg: #fdeaa6;
+  --highlight-ring: #d9a21b;
+
+  --switch-off: #c8cfd9;
+  --knob: #ffffff;
+  --phone-frame: #0f1b2d;
+  --shadow: rgba(15, 27, 45, 0.18);
+  --shadow-soft: rgba(15, 27, 45, 0.06);
+  --scrim: rgba(15, 27, 45, 0.45);
+
+  /* Evidence types: bar color, chip background, chip text */
+  --ev-unknown: #c2410c;
+  --ev-unknown-bg: #fbe7dc;
+  --ev-unknown-fg: #8a2c07;
+  --ev-invoice: #7c3aed;
+  --ev-invoice-bg: #efe9fd;
+  --ev-invoice-fg: #5b21b6;
+  --ev-mtr: #1d4ed8;
+  --ev-mtr-bg: #e0e9fc;
+  --ev-mtr-fg: #1e40af;
+  --ev-cert: #7fa6f0;
+  --ev-cert-bg: #eaf1fd;
+  --ev-cert-fg: #2b4c8c;
+  --ev-lot: #d9a21b;
+  --ev-lot-bg: #fbf1d6;
+  --ev-lot-fg: #6e4a07;
+  --ev-none: #a7adb4;
+  --ev-none-bg: #eef0f3;
+  --ev-none-fg: #3d434a;
+}
+
+/* ---------- Dark ---------- */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0b1220;
+    --surface: #111a2b;
+    --surface-2: #162135;
+    --paper: #0f1828;
+    --ink: #e6ebf2;
+    --ink-2: #c9d2df;
+    --muted: #9aa6b8;
+    --line: #24324a;
+    --line-soft: #1c2840;
+    --control-border: #34445f;
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --accent-soft: #16264a;
+    --accent-ink: #93b8fb;
+    --link: #93b8fb;
+    --on-accent: #ffffff;
+    --focus: #93c5fd;
+    --chrome: #070d18;
+    --chrome-2: #121d30;
+    --chrome-line: #22314a;
+    --chrome-text: #b4c0d2;
+    --chrome-muted: #7f8ca1;
+    --chrome-strong: #ffffff;
+    --chrome-accent: #7da7f7;
+    --badge: #c2410c;
+    --on-badge: #ffffff;
+    --ok-bg: #12321f;
+    --ok-fg: #7bd69b;
+    --ok-border: #3e9a60;
+    --ok-surface: #0f2219;
+    --warn-bg: #3a2c0a;
+    --warn-fg: #f2c55c;
+    --danger-bg: #3d1714;
+    --danger-fg: #f59a8f;
+    --danger-surface: #24120f;
+    --orange-bg: #3b1d0c;
+    --orange-fg: #f7a06b;
+    --neutral-bg: #1f2a3c;
+    --neutral-fg: #c3ccd9;
+    --info-bg: #13254a;
+    --info-fg: #a9c4fa;
+    --value-warn: #f7a06b;
+    --highlight-bg: #4a3b0c;
+    --highlight-ring: #d9a21b;
+    --switch-off: #3a4a66;
+    --knob: #ffffff;
+    --phone-frame: #000000;
+    --shadow: rgba(0, 0, 0, 0.5);
+    --shadow-soft: rgba(0, 0, 0, 0.3);
+    --scrim: rgba(0, 0, 0, 0.55);
+    --ev-unknown: #f97316;
+    --ev-unknown-bg: #3b1d0c;
+    --ev-unknown-fg: #f7a06b;
+    --ev-invoice: #a78bfa;
+    --ev-invoice-bg: #2a1f4a;
+    --ev-invoice-fg: #c4b5fd;
+    --ev-mtr: #3b82f6;
+    --ev-mtr-bg: #16264a;
+    --ev-mtr-fg: #93b8fb;
+    --ev-cert: #93c5fd;
+    --ev-cert-bg: #1a2c4d;
+    --ev-cert-fg: #bfd5fc;
+    --ev-lot: #fbbf24;
+    --ev-lot-bg: #3a2c0a;
+    --ev-lot-fg: #f2c55c;
+    --ev-none: #6b7280;
+    --ev-none-bg: #1f2a3c;
+    --ev-none-fg: #c3ccd9;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0b1220;
+  --surface: #111a2b;
+  --surface-2: #162135;
+  --paper: #0f1828;
+  --ink: #e6ebf2;
+  --ink-2: #c9d2df;
+  --muted: #9aa6b8;
+  --line: #24324a;
+  --line-soft: #1c2840;
+  --control-border: #34445f;
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-soft: #16264a;
+  --accent-ink: #93b8fb;
+  --link: #93b8fb;
+  --on-accent: #ffffff;
+  --focus: #93c5fd;
+  --chrome: #070d18;
+  --chrome-2: #121d30;
+  --chrome-line: #22314a;
+  --chrome-text: #b4c0d2;
+  --chrome-muted: #7f8ca1;
+  --chrome-strong: #ffffff;
+  --chrome-accent: #7da7f7;
+  --badge: #c2410c;
+  --on-badge: #ffffff;
+  --ok-bg: #12321f;
+  --ok-fg: #7bd69b;
+  --ok-border: #3e9a60;
+  --ok-surface: #0f2219;
+  --warn-bg: #3a2c0a;
+  --warn-fg: #f2c55c;
+  --danger-bg: #3d1714;
+  --danger-fg: #f59a8f;
+  --danger-surface: #24120f;
+  --orange-bg: #3b1d0c;
+  --orange-fg: #f7a06b;
+  --neutral-bg: #1f2a3c;
+  --neutral-fg: #c3ccd9;
+  --info-bg: #13254a;
+  --info-fg: #a9c4fa;
+  --value-warn: #f7a06b;
+  --highlight-bg: #4a3b0c;
+  --highlight-ring: #d9a21b;
+  --switch-off: #3a4a66;
+  --knob: #ffffff;
+  --phone-frame: #000000;
+  --shadow: rgba(0, 0, 0, 0.5);
+  --shadow-soft: rgba(0, 0, 0, 0.3);
+  --scrim: rgba(0, 0, 0, 0.55);
+  --ev-unknown: #f97316;
+  --ev-unknown-bg: #3b1d0c;
+  --ev-unknown-fg: #f7a06b;
+  --ev-invoice: #a78bfa;
+  --ev-invoice-bg: #2a1f4a;
+  --ev-invoice-fg: #c4b5fd;
+  --ev-mtr: #3b82f6;
+  --ev-mtr-bg: #16264a;
+  --ev-mtr-fg: #93b8fb;
+  --ev-cert: #93c5fd;
+  --ev-cert-bg: #1a2c4d;
+  --ev-cert-fg: #bfd5fc;
+  --ev-lot: #fbbf24;
+  --ev-lot-bg: #3a2c0a;
+  --ev-lot-fg: #f2c55c;
+  --ev-none: #6b7280;
+  --ev-none-bg: #1f2a3c;
+  --ev-none-fg: #c3ccd9;
+}

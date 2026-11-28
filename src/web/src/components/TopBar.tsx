@@ -1,4 +1,5 @@
 import { BellIcon, LockIcon, LogoIcon, MenuIcon, SearchIcon } from "./icons";
+import { ThemeToggle } from "./ThemeToggle";
 
 interface TopBarProps {
   onToggleSidebar: () => void;
@@ -37,6 +38,7 @@ export function TopBar({ onToggleSidebar, sidebarOpen }: TopBarProps) {
           <LockIcon size={15} />
           <span className="vault-status__text">Company vault · local</span>
         </span>
+        <ThemeToggle />
         <button type="button" className="icon-btn" aria-label="Notifications">
           <BellIcon />
         </button>

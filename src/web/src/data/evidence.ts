@@ -8,13 +8,18 @@ export interface EvidenceMeta {
   chipFg: string;
 }
 
+/** Colors come from styles/theme.css so they follow the light or dark theme. */
+function tokens(key: string) {
+  return { color: `var(--ev-${key})`, chipBg: `var(--ev-${key}-bg)`, chipFg: `var(--ev-${key}-fg)` };
+}
+
 export const EVIDENCE: Record<EvidenceType, EvidenceMeta> = {
-  unknown_origin: { label: "Unknown origin", color: "#c2410c", chipBg: "#fbe7dc", chipFg: "#8a2c07" },
-  invoice_states_origin: { label: "Invoice states origin", color: "#2f5d9a", chipBg: "#e5edf8", chipFg: "#1d3f6e" },
-  lot_specific_mill_test_report: { label: "Lot-specific mill test report", color: "#0e5c59", chipBg: "#ddedeb", chipFg: "#0b4a47" },
-  lot_dependent: { label: "Lot-dependent", color: "#d9a21b", chipBg: "#fbf1d6", chipFg: "#7a5208" },
-  supplier_origin_certification: { label: "Supplier certification", color: "#5fa39e", chipBg: "#e4f2e8", chipFg: "#1f5c34" },
-  purchase_without_origin: { label: "Purchase, no origin stated", color: "#a7adb4", chipBg: "#eeeff1", chipFg: "#3d434a" },
+  unknown_origin: { label: "Unknown origin", ...tokens("unknown") },
+  invoice_states_origin: { label: "Invoice states origin", ...tokens("invoice") },
+  lot_specific_mill_test_report: { label: "Lot-specific mill test report", ...tokens("mtr") },
+  lot_dependent: { label: "Lot-dependent", ...tokens("lot") },
+  supplier_origin_certification: { label: "Supplier certification", ...tokens("cert") },
+  purchase_without_origin: { label: "Purchase, no origin stated", ...tokens("none") },
 };
 
 const CUSMA_COUNTRIES = new Set(["CA", "US", "MX"]);

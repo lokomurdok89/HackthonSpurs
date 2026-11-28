@@ -46,8 +46,8 @@
 
 .notice {
   margin: 0;
-  background: #e5edf8;
-  color: #1d3f6e;
+  background: var(--info-bg);
+  color: var(--info-fg);
   border-radius: 10px;
   padding: 12px 16px;
   font-size: 14px;
@@ -81,7 +81,7 @@
   color: var(--muted);
 }
 .card__value--warn {
-  color: #9a3412;
+  color: var(--value-warn);
 }
 .card__sub {
   font-size: 13px;
@@ -175,10 +175,10 @@
   letter-spacing: 0.4px;
 }
 .bom tbody tr {
-  border-top: 1px solid #eceae4;
+  border-top: 1px solid var(--line-soft);
 }
 .bom tbody tr:hover {
-  background: #fbfaf7;
+  background: var(--surface-2);
 }
 .bom tfoot tr {
   border-top: 2px solid var(--line);
@@ -201,7 +201,7 @@
 .suggested {
   font-family: var(--font);
   font-size: 11px;
-  border: 1px dashed #b8b4a8;
+  border: 1px dashed var(--control-border);
   border-radius: 4px;
   padding: 0 4px;
   margin-left: 2px;
@@ -234,12 +234,12 @@
   border-radius: 999px;
 }
 .tag--high {
-  background: #fbe7e4;
-  color: #8f1f17;
+  background: var(--danger-bg);
+  color: var(--danger-fg);
 }
 .tag--medium {
-  background: #fbf1d6;
-  color: #7a5208;
+  background: var(--warn-bg);
+  color: var(--warn-fg);
 }
 .finding__title {
   margin: 10px 0 6px;
@@ -249,7 +249,7 @@
 .finding__body {
   margin: 0;
   font-size: 13px;
-  color: #3d434a;
+  color: var(--neutral-fg);
 }
 .finding__sources {
   display: flex;
@@ -260,6 +260,6 @@
 .finding__next {
   margin: 10px 0 0;
   padding-top: 10px;
-  border-top: 1px solid #eceae4;
+  border-top: 1px solid var(--line-soft);
   font-size: 13px;
 }

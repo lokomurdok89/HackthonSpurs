@@ -20,7 +20,7 @@
   min-height: 44px;
   padding: 0 16px;
   border-radius: 8px;
-  border: 1px solid #c9c6bc;
+  border: 1px solid var(--control-border);
   background: var(--surface);
   color: var(--ink);
   font-size: 14px;
@@ -33,11 +33,11 @@
 .btn--primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #ffffff;
+  color: var(--on-accent);
   font-weight: 600;
 }
 .btn--primary:hover {
-  background: #0b4a47;
+  background: var(--accent-hover);
 }
 
 .panel {
@@ -82,12 +82,12 @@
   font-size: 13px;
 }
 .btn--ok {
-  border-color: #1f6b3a;
-  color: #1f5c34;
+  border-color: var(--ok-border);
+  color: var(--ok-fg);
   font-weight: 600;
 }
 .btn--ok:hover {
-  background: #e4f2e8;
+  background: var(--ok-bg);
 }
 .btn--ghost {
   border-color: transparent;
