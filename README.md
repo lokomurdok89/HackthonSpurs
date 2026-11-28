@@ -3,6 +3,7 @@
 Local, single-user API for the Track 2 demo. It accepts PDF, XLSX and CSV uploads, stores the original privately, and queues one durable PostgreSQL job per operation. It serves status and persisted reading results using the [published OpenAPI contract](docs/api/openapi.json). **Default: API and database only.** The optional [synthetic Worker demo](#run-the-synthetic-worker-demo) processes one known CSV. It is not OCR. All other uploads stay queued.
 
 - [Architecture and first demo walkthrough](docs/ARCHITECTURE.md)
+- [Diagnose an existing receipt without resubmitting](docs/receipt-diagnostics.md)
 - [Run the React UI against the local API](frontend/README.md)
 - [Frontend integration guide and synthetic examples](docs/api/README.md)
 - [Live API tests against PostgreSQL](tests/integration/test_document_api.py)
