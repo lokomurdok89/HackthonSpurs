@@ -5,6 +5,7 @@ Local, single-user API for the Track 2 demo. It accepts PDF, XLSX and CSV upload
 - [Architecture and first demo walkthrough](docs/ARCHITECTURE.md)
 - [Frontend integration guide and synthetic examples](docs/api/README.md)
 - [Live API tests against PostgreSQL](tests/integration/test_document_api.py)
+- [DeValpo engineering skill](.agents/skills/devalpo-engineering/SKILL.md) — from this repository, ask Codex: `Use $devalpo-engineering to review this change and explain which checks it needs.`
 
 ## Run locally
 
