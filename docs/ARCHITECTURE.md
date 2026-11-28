@@ -2,11 +2,13 @@
 
 **Scope: local, single-user demonstration.** A user uploads a document, leaves the UI, and comes back to see what could be read and **where it appears in the original**. Finishing a reading job does not establish that a claim is true or that a product complies with a regulation.
 
-**Delivery status:** the .NET 10 API, PostgreSQL persistence, private original-file storage and the three [public operations](api/openapi.json) are implemented. The React Documents screen uses these operations through a loopback Vite proxy. Products and Review queue still display separate demo data. The opt-in synthetic Worker profile processes one exact fixture through an internal test reader; ordinary uploads remain queued. The hackathon-supplied OCR is not connected. Its interface and data boundary must be confirmed before using it. See the [local API runbook](../README.md) and [UI handoff](api/README.md).
+**Delivery status:** the .NET 10 API, PostgreSQL persistence, private original-file storage and the six [public operations](api/openapi.json) are implemented. The React Documents screen uses these operations through a loopback Vite proxy. Products and Review queue still display separate demo data. The opt-in synthetic Worker profile processes one exact fixture through an internal test reader; ordinary uploads remain queued. A separate [SPUR reader](spur-ocr.md) can transcribe a caller-supplied page image using the hackathon vision model. The optional document Worker converts submitted PDF/Office/text documents to page images or passes through PNG/JPEG; the UI shows the persisted transcription beside the upload form. Successful explicit OCR also schedules a separate durable semantic index job; the optional index worker writes pgvector chunks with page locators. No live OCR, live embeddings verification or data-transfer approval is implied. See the [local API runbook](../README.md) and [UI handoff](api/README.md).
+
+The [backend resource catalog and error dictionary](backend-resources.md) is shared by all hosts. Safe OCR error codes survive the Worker boundary; historical generic failures are not rewritten.
 
 ## 1. System boundaries
 
-Five target services: **React/TypeScript UI, ASP.NET Core API, .NET Worker, document reader/OCR and PostgreSQL**. The API accepts durable work; the Worker claims eligible fixture jobs from PostgreSQL and calls the reader over HTTP. The reader returns evidence, not decisions. Original files belong on a private volume, not in a sixth service.
+Five target services: **React/TypeScript UI, ASP.NET Core API, .NET Worker, document reader/OCR and PostgreSQL**. The API accepts durable work; the Worker claims eligible jobs for its configured reader from PostgreSQL and calls the reader over HTTP. The reader returns evidence, not decisions. Original files belong on a private volume, not in a sixth service.
 
 ```mermaid
 flowchart LR
@@ -15,11 +17,16 @@ flowchart LR
     A -->|"Write validated original"| F[("Private original-file volume")]
     W["Worker · .NET 10"] -->|"Claim a job; persist attempt and result"| P
     F -->|"Read by opaque key"| W
-    W -->|"Bounded stream over internal HTTP"| O["Fixture reader · hackathon OCR pending"]
+    W -->|"Bounded stream over internal HTTP"| O["Fixture reader · synthetic lane"]
     O -->|"Located fragments or a classified error"| W
+    W -->|"OCR submissions: one image per printed page"| R["Private SPUR page reader"]
+    R -->|"Authorized page image · server-side HTTPS"| S["SPUR vision gateway"]
+    I["Worker · semantic index lane"] -->|"Claim OCR index and publish vectors"| P
+    I -->|"Stored OCR excerpts only"| E["SPUR embeddings gateway"]
+    A -->|"Explicit search query only"| E
 ```
 
-The browser will use only the same-origin API. There is no API-to-Worker HTTP call, browser callback, cloud provider or automatic corpus ingestion. The reader must not receive database credentials or mount the original-file volume. Reading a result never schedules work.
+The browser will use only the same-origin API. There is no API-to-Worker HTTP call, browser callback, external provider in the default stack, or automatic corpus ingestion or legacy backfill. The reader must not receive database credentials or mount the original-file volume. Reading a result or checking index status never schedules work. The index worker has no originals mount.
 
 ## 2. Evidence driving the design
 
@@ -64,17 +71,37 @@ PostgreSQL enforces uniqueness across API instances and enables short claim tran
 | `tests/contract/`, `tests/integration/` | Offline OpenAPI examples and real HTTP/PostgreSQL acceptance tests, respectively. |
 | `frontend/` | React, TypeScript, Vite and fetch. Document upload, bookmarkable status and reading results; separate sample product/review views. Same-origin proxy; no global state manager or WebSockets required. |
 | `backend/HackthonSpurs.Worker/` | .NET BackgroundService, database claims, bounded retries and an HTTP reader client. References Documents, not the API host. |
-| `backend/reader-fixture/` | Private .NET HTTP test double for a single CSV. No OCR engine, provider SDK, database credentials, originals mount or public port. A future adapter will map the hackathon OCR to the internal boundary. |
+| `backend/reader-fixture/` | Private .NET HTTP test double for a single CSV. No OCR engine, provider SDK, database credentials, originals mount or public port. No external calls. |
+| `backend/reader-spur/` | Optional private page-image reader. Only this process uses SPUR credentials for vision; its HTTP adapter translates bounded vision chat completions into page-level text. |
 
 The backend solution is `backend/HackthonSpurs.slnx`. EF Core with its PostgreSQL provider owns storage and migrations; BCL and ASP.NET Core handle streaming, hashing, ZIP/XML inspection, configuration and HTTP. Pin reader binaries, languages and licenses when that service is added.
+
+The [semantic search runbook](semantic-search.md) describes the optional index worker lane, the shared server-only vector profile, and provider isolation. The pgvector integration reuses the Npgsql connection and original PR #7 vector schema without text extraction or a parallel ingestion API.
+
+### CQRS in the document backend
+
+The API is an HTTP adapter, not the owner of the use cases. It parses the request, invokes one handler via scoped dependency injection, then maps the outcome to the existing OpenAPI response.
+
+| Intent | Entry point | Owner and behavior |
+|---|---|---|
+| Command: accept an upload | `POST /api/documents` | [`AcceptDocumentHandler`](../backend/HackthonSpurs.Documents/Commands/AcceptDocumentHandler.cs) arbitrates the operation key, validates the staged bytes, publishes the original and commits the queued job. Reading an existing key **inside the command** enforces idempotency. |
+| Query: check progress | `GET /api/documents/{id}` | [`GetDocumentStatusHandler`](../backend/HackthonSpurs.Documents/Queries/GetDocumentStatusHandler.cs) projects only state, attempt and failure code. |
+| Query: read evidence | `GET /api/documents/{id}/result` | [`GetDocumentResultHandler`](../backend/HackthonSpurs.Documents/Queries/GetDocumentResultHandler.cs) projects state and persisted result JSON. It never calls a reader or schedules work. |
+| Query: check index progress | `GET /api/documents/{id}/index-status` | `GetDocumentIndexStatusHandler` independently projects the durable index state. |
+| Query: search OCR | `POST /api/search`, `GET /api/search/stats` | `DocumentSearchService` ranks current-profile excerpts; only an explicit query with compatible indexed data calls the embedding provider. Neither route writes document state. |
+| Internal writes: claim and finish | Worker loop, not HTTP | `Worker/JobQueue` changes reader lease and state; a valid SPUR publication creates one index job atomically. `Worker/IndexQueue` owns the independent lease and publishes chunks plus terminal status in a short transaction. A claim is a write even though it returns work. |
+
+Read models use no-tracking projections on the same PostgreSQL database as the commands. The OCR job table remains separate from the indexing job and pgvector chunks, without introducing a second database, event store, message bus or mediator package. Add new document mutations under `Commands/` and new read projections under `Queries/` in the existing `HackthonSpurs.Documents` project.
 
 ## 5. Processing flow and contracts
 
 1. **Upload.** One multipart file and a client-generated UUID operation key per submission. Never trust the filename, and never use it as a path. Enforce a byte cap while streaming, check file content and reject an incompatible declared type. An intentionally repeated submission with a new key is new work.
 2. **Accept.** Write a unique temporary file in the private store, hash its bytes, validate and reserve the operation key in PostgreSQL. Atomically move the file into place before committing metadata and the queued job. Return `202 Accepted`, an ID and a relative `Location` **only after commit**. A unique index arbitrates competing API instances; a replay returns the winning ID even with a different filename. Different bytes under an accepted key yield 409.
-3. **Claim (synthetic profile).** The Worker claims an eligible job in a short transaction, increment its attempt and set an expiring lease/token. Read the original by its opaque ID and verify the hash. Do not hold a database transaction while reading or calling OCR.
-4. **Read (synthetic profile).** Internal `POST /internal/read` takes bounded bytes, media type, correlation and contract version, not arbitrary paths or URLs. Return located fragments, method and warnings or a classified error. No direct reader access to SQL. Do not invent confidence values or finalize business extraction fields here.
-5. **Persist and query.** The fixture adapter validates result identity, version, bounds and its expected locator, and commits result plus terminal state only for the current lease owner. The API already queries persisted state and results without side effects; see the [wire contract](api/openapi.json) for exact casing, errors and examples. UI must render extracted text as untrusted plain text.
+3. **Claim.** The fixture Worker selects only the known CSV; the optional SPUR Worker selects the persisted OCR mode, never an original merely because its type matches. Each claims a job in a short transaction, increments its attempt and sets an expiring lease/token. Read the original by its opaque ID and verify the hash. Do not hold a database transaction while reading or calling OCR.
+4. **Read.** Internal `POST /internal/read` takes bounded bytes, media type, correlation and contract version, not arbitrary paths or URLs. Return located fragments, method and warnings or a classified error. No direct reader access to SQL. Do not invent confidence values or finalize business extraction fields here.
+5. **Persist and query.** Each Worker validates result identity, version, bounds and its expected locator, and commits result plus terminal state only for the current lease owner. The API already queries persisted state and results without side effects; see the [wire contract](api/openapi.json) for exact casing, errors and examples. UI must render extracted text as untrusted plain text.
+
+6. **Index and search (optional).** The OCR publication commits one index row in the same statement. Zero readable text commits `Skipped`; otherwise a separate worker claims the row, sends bounded OCR excerpts to SPUR embeddings, and commits one vector generation while its lease is valid. Chunks preserve the original printed page. The independent outcomes do not change the transcript. Only newly published OCR-mode results are eligible. Searching compares current-profile vectors and returns cited excerpts.
 
 ### 5.1 First demo: from a bill of materials to a supplier certificate
 
@@ -94,18 +121,19 @@ In all three cases, `Completed` refers to the reading job, not the strength of t
 
 ## 6. Persistence, states and failure boundaries
 
-The current migration creates one `document_jobs` row per document: operation key, opaque ID (also the storage key), hash, media type, byte count, acceptance time, state, attempt, optional terminal failure code and optional JSONB reading. A unique index protects the operation key; check constraints tie the presence of the result to `Completed` and the failure code to `Failed`. The three public endpoints do not set terminal states. The additive WorkerLeases migration adds nullable ownership token, expiry and next-attempt time. Attempts are counted on the job; there is no separate history table. See the [fixture contract](reader-fixture.md).
+The current migration creates one `document_jobs` row per document: operation key, opaque ID (also the storage key), hash, media type, byte count, acceptance time, state, attempt, optional terminal failure code and optional JSONB reading. A unique index protects the operation key; check constraints tie the presence of the result to `Completed` and the failure code to `Failed`. Public endpoints do not set terminal states. The DocumentOcrRouting migration records the requested mode; only legacy images are backfilled as OCR. The additive WorkerLeases migration adds nullable ownership token, expiry and next-attempt time. Attempts are counted on the job; there is no separate history table. See the [fixture contract](reader-fixture.md). The additive DurableDocumentIndex migration preserves the upstream vector table and adds each vector's optional page plus the independent leased job table. Older vectors cannot be searched without a completed compatible job.
 
 | Event | State and behavior |
 |---|---|
 | Acceptance committed | `Queued`, attempt 0. The UI may leave. The API never acknowledges a failed save. |
-| Claim (fixture only) | `Queued → Processing`; select eligible rows in a stable order with `SKIP LOCKED`, commit the lease, then perform I/O. One active job is sufficient initially. |
-| Timeout or temporary reader outage | `Processing → Queued` with next eligible time. Three attempts total, delays of 5 s and 30 s. Do not stack another automatic HTTP retry policy. |
+| Claim (eligible jobs only) | `Queued → Processing`; select eligible rows in a stable order with `SKIP LOCKED`, commit the lease, then perform I/O. One active job is sufficient initially. |
+| Timeout or temporary reader outage (fixture) | `Processing → Queued` with next eligible time. Three attempts total, delays of 5 s and 30 s. Do not stack another automatic HTTP retry policy. |
+| Timeout, outage or expired lease (SPUR) | Fail after the single claim. Do not automatically resend a possibly billed image. |
 | Worker exits unexpectedly | Reclaim expired leases using database time, or fail an exhausted job. An expired owner cannot publish a late result or overwrite a subsequent attempt. |
 | Permanent error or attempt limit | `Failed` plus a safe failure code. The status endpoint returns 200; result lookup returns 409 with `processing_failed`. Pending results use `result_not_ready`. |
 | Successful or partial reading | Atomically publish `Completed` and the technical result. Preserve page/cell locators and warnings rather than inventing content. |
 
-The target is at-least-once execution, not exactly-once OCR. Keep one current result; bound the reader timeout below the lease duration with time left to validate and save. Keep per-attempt diagnostics out of public result payloads.
+Fixture processing can be repeated. External OCR has at most one application-level attempt per job, not an exactly-once guarantee. Keep one current result; bound the reader timeout below the lease duration with time left to validate and save. Keep per-attempt diagnostics out of public result payloads.
 
 **Files and SQL are not one transaction.** The API removes its own temporary files on normal exits and rollback paths. A crash can leave an old temporary file or a published original without a committed row. Never delete a published file after an ambiguous commit acknowledgement: replay the same key to resolve the operation. Reconcile aged orphans against committed metadata manually; do not bulk-delete the volume or source corpus.
 

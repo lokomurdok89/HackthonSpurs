@@ -1,3 +1,5 @@
+using HackthonSpurs.Resources;
+using HackthonSpurs.Documents.Embeddings;
 using HackthonSpurs.Worker;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -6,19 +8,37 @@ using Npgsql;
 
 var builder = Host.CreateApplicationBuilder(args);
 var config = builder.Configuration;
-var connection = config.GetConnectionString("Documents") ?? throw new InvalidOperationException("Missing Documents connection.");
-var root = config["Storage:Root"] ?? "";
-if (!Path.IsPathFullyQualified(root)) throw new InvalidOperationException("An absolute originals directory is required.");
-
-// This slice has no general-purpose or external OCR transport.
-var endpoint = new Uri(config["Reader:Endpoint"] ?? throw new InvalidOperationException("Reader endpoint required."));
-if (endpoint != new Uri("http://fixture-reader:8080/internal/read"))
-    throw new InvalidOperationException("Only the internal fixture reader is supported.");
+var connection = config.GetConnectionString(SettingNames.DocumentConnection) ?? throw new InvalidOperationException(ResourceText.ConnectionRequired);
 builder.Services.AddSingleton(_ => NpgsqlDataSource.Create(connection));
-builder.Services.AddSingleton<JobQueue>();
-builder.Services.AddSingleton(_ => new HttpClient(new SocketsHttpHandler {
-    AllowAutoRedirect = false, UseProxy = false, UseCookies = false
-}) { Timeout = TimeSpan.FromSeconds(10), MaxResponseContentBufferSize = 65536 });
+
+if (config.GetValue<bool>(SettingNames.IndexWorker))
+{
+    SpurEmbeddingSettings.Register(builder.Services, config, builder.Environment.IsEnvironment(SettingNames.TestingEnvironment));
+    builder.Services.AddSingleton<IndexQueue>();
+    builder.Services.AddHostedService<IndexWorker>();
+    using var host = builder.Build();
+    if (!host.Services.GetRequiredService<SpurEmbeddingSettings>().IsConfigured)
+        throw new InvalidOperationException(ResourceText.RequireIndexing);
+    await host.RunAsync();
+    return;
+}
+
+var root = config[SettingNames.StorageRoot] ?? "";
+if (!Path.IsPathFullyQualified(root)) throw new InvalidOperationException(ResourceText.RequireRoot);
+
+// Restrict each worker to its private reader and disjoint queue filter.
+var endpoint = new Uri(config[SettingNames.ReaderEndpoint] ?? throw new InvalidOperationException(ResourceText.RequireReader));
+bool spur = endpoint == new Uri(ServiceDefaults.SpurReader);
+if (!spur && endpoint != new Uri(ServiceDefaults.FixtureReader))
+    throw new InvalidOperationException(ResourceText.UnsupportedReader);
+builder.Services.AddSingleton(sp => new JobQueue(sp.GetRequiredService<NpgsqlDataSource>(), spur));
+builder.Services.AddSingleton(_ => new HttpClient(new SocketsHttpHandler
+{
+    AllowAutoRedirect = false,
+    UseProxy = false,
+    UseCookies = false
+})
+{ Timeout = TimeSpan.FromSeconds(Policy.ReaderSeconds), MaxResponseContentBufferSize = spur ? Policy.MaxPageReply : Policy.MaxFixtureReply });
 builder.Services.AddSingleton(sp => new ReaderClient(sp.GetRequiredService<HttpClient>(), endpoint, root));
 builder.Services.AddHostedService<DocumentWorker>();
 await builder.Build().RunAsync();

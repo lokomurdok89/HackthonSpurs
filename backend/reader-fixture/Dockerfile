@@ -1,6 +1,7 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0.401 AS build
 WORKDIR /source
 COPY backend/NuGet.Config backend/
+COPY backend/HackthonSpurs.Resources/ backend/HackthonSpurs.Resources/
 COPY backend/reader-fixture/ backend/reader-fixture/
 RUN dotnet publish backend/reader-fixture -c Release -o /publish
 

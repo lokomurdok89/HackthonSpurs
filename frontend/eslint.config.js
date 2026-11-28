@@ -19,6 +19,7 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
+      indent: ['error', 2, { SwitchCase: 1 }],
       'max-lines': ['error', 200],
       'react-refresh/only-export-components': [
         'warn',

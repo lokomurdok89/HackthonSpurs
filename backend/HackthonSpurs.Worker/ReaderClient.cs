@@ -1,50 +1,99 @@
+using HackthonSpurs.Resources;
+using HackthonSpurs.Documents.Storage;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
 
 namespace HackthonSpurs.Worker;
 
+/// <summary>Carry either validated reading JSON or a classified reader failure.</summary>
+/// <param name="Json">Validated public reading on success.</param>
+/// <param name="Error">Safe failure code.</param>
+/// <param name="Retryable">Whether the lane may schedule another attempt.</param>
 internal sealed record ReadOutcome(string? Json = null, string? Error = null, bool Retryable = false);
+/// <summary>Send verified original bytes to the private reader for this lane.</summary>
+/// <param name="http">Configured transport.</param>
+/// <param name="endpoint">Private reader endpoint.</param>
+/// <param name="root">Private originals directory.</param>
 internal sealed class ReaderClient(HttpClient http, Uri endpoint, string root)
 {
+    /// <summary>Verify the original, call the bounded reader and validate its response.</summary>
+    /// <param name="job">Claim authorizing this attempt.</param>
+    /// <param name="stopping">Host shutdown token.</param>
     public async Task<ReadOutcome> ReadAsync(Claim job, CancellationToken stopping)
     {
-        // This adapter only handles the tiny known fixture. Verify the exact bytes sent,
-        // not a name or a previously hashed stream that may change before the request.
+        bool spur = endpoint.Host == ServiceDefaults.SpurHost;
         byte[] bytes;
         try
         {
-            using var input = File.OpenRead(Path.Combine(root, $"{job.Id:N}.original"));
-            if (job.ByteCount is <= 0 or > 1024 || input.Length != job.ByteCount)
-                return new(Error: "original_mismatch");
+            using var input = File.OpenRead(Path.Combine(root, job.Id.ToString("N") + Wire.OriginalSuffix));
+            if (job.ByteCount <= 0 || job.ByteCount > (spur ? OcrFormats.MaxDocumentBytes : Policy.MaxFixtureBytes) || input.Length != job.ByteCount)
+                return new(Error: Errors.OriginalMismatch.Code);
             bytes = new byte[(int)job.ByteCount];
             await input.ReadExactlyAsync(bytes, stopping);
-            if (Convert.ToHexStringLower(SHA256.HashData(bytes)) != JobQueue.FixtureHash)
-                return new(Error: "original_mismatch");
+            if (Convert.ToHexStringLower(SHA256.HashData(bytes)) != (spur ? job.Hash : JobQueue.FixtureHash))
+                return new(Error: Errors.OriginalMismatch.Code);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        { return new(Error: "original_unavailable", Retryable: true); }
+        { return new(Error: Errors.OriginalUnavailable.Code, Retryable: true); }
 
+        if (!spur || job.MediaType is Media.Png or Media.Jpeg)
+            return await SendAsync(job.Id, bytes, job.MediaType, spur ? 1 : 0, stopping);
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(stopping);
+        deadline.CancelAfter(TimeSpan.FromMinutes(Policy.DocumentMinutes));
+        try
+        {
+            var dir = Directory.CreateTempSubdirectory(RenderSettings.TempPrefix);
+            try
+            {
+                var pages = await DocumentRenderer.RenderAsync(bytes, job.MediaType, dir.FullName, deadline.Token);
+                var results = new List<string>();
+                for (int i = 0; i < pages.Length; i++)
+                {
+                    var jpeg = await File.ReadAllBytesAsync(pages[i], deadline.Token);
+                    var reading = await SendAsync(job.Id, jpeg, Media.Jpeg, i + 1, deadline.Token);
+                    if (reading.Json is null) return reading;
+                    results.Add(reading.Json);
+                }
+                return SpurResult.Combine(results, job.Id);
+            }
+            finally { dir.Delete(recursive: true); }
+        }
+        catch (OperationCanceledException) when (!stopping.IsCancellationRequested) { return new(Error: Errors.DocumentTimeout.Code); }
+        catch (RenderFailure ex) { return new(Error: ex.Message); }
+        catch (System.ComponentModel.Win32Exception) { return new(Error: Errors.RendererUnavailable.Code); }
+        catch (IOException) { return new(Error: Errors.DocumentNotRenderable.Code); }
+        catch (UnauthorizedAccessException) { return new(Error: Errors.DocumentNotRenderable.Code); }
+    }
+
+    /// <summary>Submit one bounded page or the known local CSV and validate the reader reply.</summary>
+    /// <param name="id">Document receipt identifier.</param>
+    /// <param name="bytes">Verified input for this call.</param>
+    /// <param name="media">MIME type of the supplied bytes.</param>
+    /// <param name="page">One-based printed page; zero selects the local fixture.</param>
+    /// <param name="stopping">Job cancellation signal.</param>
+    private async Task<ReadOutcome> SendAsync(Guid id, byte[] bytes, string media, int page, CancellationToken stopping)
+    {
         using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
-        request.Headers.Add("X-Document-Id", job.Id.ToString("D"));
-        request.Headers.Add("X-Reader-Contract", "1");
+        request.Headers.Add(Wire.DocumentHeader, id.ToString("D"));
+        request.Headers.Add(Wire.ReaderContractHeader, Wire.Version);
+        if (page > 0) request.Headers.Add(Wire.PageHeader, page.ToString(System.Globalization.CultureInfo.InvariantCulture));
         request.Content = new ByteArrayContent(bytes);
-        request.Content.Headers.ContentType = new MediaTypeHeaderValue("text/csv");
+        request.Content.Headers.ContentType = new MediaTypeHeaderValue(media);
         try
         {
             using var response = await http.SendAsync(request, stopping);
-            if ((int)response.StatusCode >= 500 || response.StatusCode is HttpStatusCode.RequestTimeout or HttpStatusCode.TooManyRequests)
-                return new(Error: "reader_unavailable", Retryable: true);
-            if (response.StatusCode != HttpStatusCode.OK) return new(Error: "reader_rejected");
-            if (response.Content.Headers.ContentType?.MediaType != "application/json")
-                return new(Error: "invalid_reader_result");
+            if (response.StatusCode != HttpStatusCode.OK)
+                return await ReaderProblems.ClassifyAsync(response, page > 0, stopping);
+            if (response.Content.Headers.ContentType?.MediaType != Media.Json)
+                return new(Error: Errors.InvalidReaderResult.Code);
             var body = await response.Content.ReadAsByteArrayAsync(stopping);
-            return FixtureResult.Validate(body, job.Id);
+            return page > 0 ? SpurResult.Validate(body, id, page) : FixtureResult.Validate(body, id);
         }
         catch (OperationCanceledException) when (!stopping.IsCancellationRequested)
-        { return new(Error: "reader_timeout", Retryable: true); }
+        { return new(Error: Errors.ReaderTimeout.Code, Retryable: true); }
         catch (HttpRequestException ex) when (ex.HttpRequestError == HttpRequestError.ConfigurationLimitExceeded)
-        { return new(Error: "invalid_reader_result"); }
-        catch (HttpRequestException) { return new(Error: "reader_unavailable", Retryable: true); }
+        { return new(Error: Errors.InvalidReaderResult.Code); }
+        catch (HttpRequestException) { return new(Error: Errors.ReaderUnavailable.Code, Retryable: true); }
     }
 }

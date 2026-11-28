@@ -4,6 +4,7 @@ import type { DemoData } from "./types";
 
 // Only opt-in local Vite development may import private demo modules.
 // Lazy imports inside the DEV branch are removed entirely from release bundles.
+/** Load the sample workspace unless an enabled local development override is available. */
 export function useDemoData() {
   const [demo, setDemo] = useState(sampleData);
   useEffect(() => {

@@ -1,0 +1,33 @@
+.ds { display: flex; flex-direction: column; gap: 20px; }
+.ds__header, .ds__search-row, .ds__hit-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.ds__header h1 { margin: 0 0 4px; }
+.ds__header p { margin: 0; color: var(--muted); }
+.ds__search-row { margin-top: 8px; }
+.ds__input {
+  flex: 1 1 280px;
+  min-height: 44px;
+  min-width: 0;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+.ds__input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.ds__hint { font-size: 0.875rem; color: var(--muted); }
+.ds__results { display: grid; gap: 12px; padding: 0; list-style: none; }
+.ds__hit {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px 16px;
+  background: var(--bg);
+}
+.ds__hit-head { margin-bottom: 8px; }
+.ds__hit-text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }

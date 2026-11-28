@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "HackthonSpurs Document API",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "description": "Contract-first, same-origin, local single-user demo. Synthetic examples only. No live backend is implied. The Worker and reader are private to the backend."
   },
   "paths": {
@@ -10,7 +10,7 @@
       "post": {
         "operationId": "uploadDocument",
         "summary": "Accept one file for asynchronous reading",
-        "description": "PDF, XLSX and CSV are the initial allowlist; verify actual content server-side. The file byte limit is configurable (demo default 20 MiB). New key = new operation. Same key and identical file bytes (even with a different name) = same receipt; same key and different bytes = 409. Do not use file name or digest alone as the key.",
+        "description": "Without the provider header, PDF/XLSX/CSV are stored locally. With SPUR, submit PDF, DOCX, XLSX, PPTX, UTF-8 TXT/CSV (up to 20 MiB, 20 printed pages) or PNG/JPEG (up to 4 MiB). Unsupported types return 415; unrenderable and over-page-limit documents fail asynchronously. The file byte limit is configurable (demo default 20 MiB). New key = new operation. Same key and identical file bytes (even with a different name) = same receipt; same key and different bytes or processing mode = 409. Do not use file name or digest alone as the key.",
         "parameters": [
           {
             "in": "header",
@@ -18,6 +18,11 @@
             "required": true,
             "description": "Client-generated UUID per upload action; reuse it after network loss.",
             "schema": {"type":"string","format":"uuid"}
+          },
+          {
+            "in": "header", "name": "X-OCR-Provider", "required": false,
+            "description": "Set for the Send to OCR action; printed pages go to SPUR. Requires the local SPUR overlay; otherwise 503/ocr_disabled. Omit for regular uploads.",
+            "schema": {"type":"string","enum":["spur"]}
           }
         ],
         "requestBody": {
@@ -32,7 +37,7 @@
               },
               "encoding": {
                 "file": {
-                  "contentType": "application/pdf, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, text/csv, application/octet-stream"
+                  "contentType": "application/pdf, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.openxmlformats-officedocument.wordprocessingml.document, application/vnd.openxmlformats-officedocument.presentationml.presentation, text/plain, text/csv, image/png, image/jpeg, application/octet-stream"
                 }
               }
             }
@@ -104,7 +109,16 @@
               }
             }
           },
-          "503": {"$ref":"#/components/responses/Unavailable"}
+          "503": {
+            "description": "Service unavailable, or document OCR is not enabled.",
+            "content": {"application/problem+json":{
+              "schema":{"$ref":"#/components/schemas/Problem"},
+              "examples":{
+                "disabled":{"value":{"status":503,"code":"ocr_disabled","title":"SPUR document reading is not enabled."}},
+                "unavailable":{"value":{"status":503,"code":"service_unavailable","title":"Service temporarily unavailable."}}
+              }
+            }}
+          }
         }
       }
     },
@@ -265,6 +279,276 @@
           "503": {"$ref":"#/components/responses/Unavailable"}
         }
       }
+    },
+    "/api/documents/{id}/index-status": {
+      "parameters": [{"$ref":"#/components/parameters/DocumentId"}],
+      "get": {
+        "operationId": "getDocumentIndexStatus",
+        "summary": "Look up the independent semantic indexing stage",
+        "description": "Read-only. Poll AwaitingReading, Queued or Processing. A failed or skipped index does not alter the OCR reading. Existing completed readings are not backfilled.",
+        "responses": {
+          "200": {
+            "description": "Current status of indexing for an existing receipt.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref":"#/components/schemas/DocumentIndexStatus"},
+                "examples": {
+                  "awaitingReading": {
+                    "value": {
+                      "id": "10000000-0000-4000-8000-000000000002",
+                      "state": "AwaitingReading",
+                      "attempt": 0,
+                      "chunkCount": 0
+                    }
+                  },
+                  "notApplicable": {
+                    "value": {
+                      "id": "10000000-0000-4000-8000-000000000002",
+                      "state": "NotApplicable",
+                      "attempt": 0,
+                      "chunkCount": 0
+                    }
+                  },
+                  "notIndexed": {
+                    "value": {
+                      "id": "10000000-0000-4000-8000-000000000002",
+                      "state": "NotIndexed",
+                      "attempt": 0,
+                      "chunkCount": 0
+                    }
+                  },
+                  "queued": {
+                    "value": {"id":"10000000-0000-4000-8000-000000000002","state":"Queued","attempt":0,"chunkCount":0}
+                  },
+                  "processing": {
+                    "value": {
+                      "id": "10000000-0000-4000-8000-000000000002",
+                      "state": "Processing",
+                      "attempt": 1,
+                      "chunkCount": 0
+                    }
+                  },
+                  "indexed": {
+                    "value": {
+                      "id": "10000000-0000-4000-8000-000000000002",
+                      "state": "Completed",
+                      "attempt": 1,
+                      "chunkCount": 2
+                    }
+                  },
+                  "skipped": {
+                    "value": {"id":"10000000-0000-4000-8000-000000000002","state":"Skipped","attempt":0,"chunkCount":0}
+                  },
+                  "failed": {
+                    "value": {
+                      "id": "10000000-0000-4000-8000-000000000002",
+                      "state": "Failed",
+                      "attempt": 1,
+                      "chunkCount": 0,
+                      "failureCode": "embedding_response_invalid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {"$ref":"#/components/responses/InvalidId"},
+          "404": {"$ref":"#/components/responses/NotFound"},
+          "503": {"$ref":"#/components/responses/Unavailable"}
+        }
+      }
+    },
+    "/api/search": {
+      "post": {
+        "operationId": "searchDocumentText",
+        "summary": "Search completed OCR indexes for page excerpts",
+        "description": "Explicit search is read-only with respect to documents. When compatible excerpts exist, the server submits the query text to SPUR. Only currently compatible indexes from successful SPUR OCR are searched; neither originals nor search queries are persisted by this operation.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref":"#/components/schemas/SemanticSearchRequest"},
+              "examples": {
+                "scoped": {
+                  "value": {"query":"demo certificate","topK":8,"documentId":"10000000-0000-4000-8000-000000000002"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Ranked OCR excerpts from the active vector profile, or an empty list when none are available.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref":"#/components/schemas/SemanticSearchResponse"},
+                "examples": {
+                  "hit": {
+                    "value": {
+                      "query": "demo certificate",
+                      "model": "spur-embed",
+                      "results": [{"chunkId":"30000000-0000-4000-8000-000000000001","documentId":"10000000-0000-4000-8000-000000000002","chunkIndex":0,"sourceName":null,"locator":"page 1","pageLocator":{"kind":"page","page":1},"text":"DEMO certificate SAMPLE-014.","model":"spur-embed","score":0.997}]
+                    }
+                  },
+                  "empty": {"value":{"query":"demo certificate","model":"spur-embed","results":[]}}
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed JSON or invalid query, result limit or receipt scope.",
+            "content": {
+              "application/problem+json": {
+                "schema": {"$ref":"#/components/schemas/Problem"},
+                "examples": {
+                  "invalid": {
+                    "value": {
+                      "status": 400,
+                      "code": "invalid_search",
+                      "title": "Provide a query of 1 to 1000 characters and a result limit of 1 to 50."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Search JSON exceeds 16 KiB.",
+            "content": {
+              "application/problem+json": {
+                "schema": {"$ref":"#/components/schemas/Problem"},
+                "examples": {
+                  "tooLarge": {
+                    "value": {"status":413,"code":"file_too_large","title":"File exceeds the upload size limit."}
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Request content type is not JSON.",
+            "content": {
+              "application/problem+json": {
+                "schema": {"$ref":"#/components/schemas/Problem"},
+                "examples": {
+                  "unsupported": {
+                    "value": {
+                      "status": 415,
+                      "code": "unsupported_media_type",
+                      "title": "Unsupported file or request format."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "SPUR rejected the request or returned an invalid vector response.",
+            "content": {
+              "application/problem+json": {
+                "schema": {"$ref":"#/components/schemas/Problem"},
+                "examples": {
+                  "rejected": {
+                    "value": {
+                      "status": 502,
+                      "code": "embedding_provider_rejected",
+                      "title": "The semantic search provider could not process the request."
+                    }
+                  },
+                  "invalidResponse": {
+                    "value": {
+                      "status": 502,
+                      "code": "embedding_response_invalid",
+                      "title": "The semantic search provider could not process the request."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The provider or persistence is unavailable, or embeddings are not enabled.",
+            "content": {
+              "application/problem+json": {
+                "schema": {"$ref":"#/components/schemas/Problem"},
+                "examples": {
+                  "notConfigured": {
+                    "value": {
+                      "status": 503,
+                      "code": "embeddings_not_configured",
+                      "title": "Semantic search is not enabled."
+                    }
+                  },
+                  "unavailable": {
+                    "value": {
+                      "status": 503,
+                      "code": "embedding_provider_unavailable",
+                      "title": "The semantic search provider is temporarily unavailable."
+                    }
+                  },
+                  "persistence": {
+                    "value": {"status":503,"code":"service_unavailable","title":"Service temporarily unavailable."}
+                  }
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The embedding provider timed out.",
+            "content": {
+              "application/problem+json": {
+                "schema": {"$ref":"#/components/schemas/Problem"},
+                "examples": {
+                  "timeout": {
+                    "value": {
+                      "status": 504,
+                      "code": "embedding_provider_timeout",
+                      "title": "The semantic search provider timed out."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/search/stats": {
+      "get": {
+        "operationId": "getSearchStats",
+        "summary": "Read compatible index counts without contacting SPUR",
+        "responses": {
+          "200": {
+            "description": "Current eligibility and index counts. Counts refer to the configured vector profile.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref":"#/components/schemas/SearchStats"},
+                "examples": {
+                  "enabled": {
+                    "value": {
+                      "embeddingsConfigured": true,
+                      "model": "spur-embed",
+                      "totalDocuments": 3,
+                      "indexedDocuments": 1,
+                      "totalChunks": 2
+                    }
+                  },
+                  "disabled": {
+                    "value": {
+                      "embeddingsConfigured": false,
+                      "model": "spur-embed",
+                      "totalDocuments": 3,
+                      "indexedDocuments": 0,
+                      "totalChunks": 0
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {"$ref":"#/components/responses/Unavailable"}
+        }
+      }
     }
   },
   "components": {
@@ -292,7 +576,7 @@
           "failureCode": {
             "type": "string",
             "minLength": 1,
-            "description": "Safe machine-readable terminal cause; present only in Failed. Never provider text or document content."
+            "description": "Safe terminal code from the backend resource catalog; present only in Failed. A vetted reader cause is retained when available. Older receipts may use reader_rejected. Never provider text or document content."
           }
         },
         "if": {"properties":{"state":{"const":"Failed"}}},
@@ -362,6 +646,84 @@
         "description": "Technical reading, not an origin claim. Empty fragments are allowed when nothing was readable; include a located warning in that case.",
         "if": {"properties":{"fragments":{"maxItems":0}}},
         "then": {"properties":{"warnings":{"minItems":1}}}
+      },
+      "DocumentIndexStatus": {
+        "type": "object",
+        "required": ["id","state","attempt","chunkCount"],
+        "properties": {
+          "id": {"type":"string","format":"uuid"},
+          "state": {
+            "type": "string",
+            "enum": ["AwaitingReading","NotApplicable","NotIndexed","Queued","Processing","Completed","Skipped","Failed"]
+          },
+          "attempt": {"type":"integer","minimum":0,"maximum":3},
+          "chunkCount": {"type":"integer","minimum":0},
+          "failureCode": {"type":"string","minLength":1,"description":"Safe terminal cause, present only for Failed."}
+        },
+        "if": {"properties":{"state":{"const":"Failed"}}},
+        "then": {"required":["failureCode"]},
+        "else": {"not":{"required":["failureCode"]}}
+      },
+      "SemanticSearchRequest": {
+        "type": "object",
+        "required": ["query"],
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000,
+            "description": "Trimmed query; whitespace-only input and NUL characters are rejected."
+          },
+          "topK": {"type":["integer","null"],"minimum":1,"maximum":50,"default":8},
+          "documentId": {"type":["string","null"],"format":"uuid"}
+        }
+      },
+      "SemanticSearchResponse": {
+        "type": "object",
+        "required": ["query","model","results"],
+        "properties": {
+          "query": {"type":"string","minLength":1,"maxLength":1000},
+          "model": {"type":"string"},
+          "results": {"type":"array","maxItems":50,"items":{"$ref":"#/components/schemas/SemanticSearchHit"}}
+        }
+      },
+      "SemanticSearchHit": {
+        "type": "object",
+        "required": ["chunkId","documentId","chunkIndex","sourceName","locator","pageLocator","text","model","score"],
+        "properties": {
+          "chunkId": {"type":"string","format":"uuid"},
+          "documentId": {"type":"string","format":"uuid"},
+          "chunkIndex": {"type":"integer","minimum":0},
+          "sourceName": {
+            "type": "null",
+            "description": "Retained for compatibility; original names are not admitted to the new index."
+          },
+          "locator": {"type":"string","description":"Legacy display locator, such as page 1."},
+          "pageLocator": {
+            "type": "object",
+            "required": ["kind","page"],
+            "properties": {"kind":{"const":"page"},"page":{"type":"integer","minimum":1,"maximum":20}}
+          },
+          "text": {"type":"string","minLength":1,"maxLength":1500},
+          "model": {"type":"string"},
+          "score": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Cosine similarity clamped to [0, 1]; not confidence or evidence quality."
+          }
+        }
+      },
+      "SearchStats": {
+        "type": "object",
+        "required": ["embeddingsConfigured","model","totalDocuments","indexedDocuments","totalChunks"],
+        "properties": {
+          "embeddingsConfigured": {"type":"boolean"},
+          "model": {"type":"string"},
+          "totalDocuments": {"type":"integer","minimum":0},
+          "indexedDocuments": {"type":"integer","minimum":0},
+          "totalChunks": {"type":"integer","minimum":0}
+        }
       },
       "Problem": {
         "type": "object",

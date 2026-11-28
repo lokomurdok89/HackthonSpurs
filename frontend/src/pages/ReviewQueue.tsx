@@ -1,13 +1,29 @@
 import { useMemo, useState } from "react";
 import type { ReviewItem } from "../data/types";
-import "./ReviewQueue.css";
-
 import { FieldRow, type Decision } from "./ReviewField";
+import "./ReviewQueue.css";
 
 type Decisions = Record<string, Decision>;
 
+/** Build a stable field key from its parent review item and field identifiers. */
 const keyOf = (itemId: string, fieldId: string) => `${itemId}/${fieldId}`;
 
+/** Wrap the supplied filename after common separators without changing the name. */
+function FileName({ name }: { name: string }) {
+  const parts = name.split(/(?<=[_.-])/);
+  return (
+    <>
+      {parts.map((p, i) => (
+        <span key={i}>
+          {p}
+          {i < parts.length - 1 ? <wbr /> : null}
+        </span>
+      ))}
+    </>
+  );
+}
+
+/** Render the provided demo review items and manage local field decisions. */
 export function ReviewQueue({ items }: { items: ReviewItem[] }) {
   const [selectedId, setSelectedId] = useState(items[0]?.id);
   const [decisions, setDecisions] = useState<Decisions>({});
@@ -15,9 +31,11 @@ export function ReviewQueue({ items }: { items: ReviewItem[] }) {
 
   const item = items.find((i) => i.id === selectedId) ?? items[0];
 
+  /** Retrieve the decision for the supplied item and field or mark it pending. */
   const decisionFor = (itemId: string, fieldId: string): Decision =>
     decisions[keyOf(itemId, fieldId)] ?? { status: "pending" };
 
+  /** Count the fields still pending on the supplied review item. */
   const pendingIn = (it: ReviewItem) => it.fields.filter((f) => decisionFor(it.id, f.id).status === "pending").length;
 
   const totals = useMemo(() => {
@@ -29,9 +47,11 @@ export function ReviewQueue({ items }: { items: ReviewItem[] }) {
     return <p className="muted">Nothing is waiting for review.</p>;
   }
 
+  /** Apply the supplied decision to the selected item's indicated field. */
   const decide = (fieldId: string, d: Decision) =>
     setDecisions((prev) => ({ ...prev, [keyOf(item.id, fieldId)]: d }));
 
+  /** Approve high-confidence pending fields for the currently selected demo item. */
   const approveConfident = () =>
     setDecisions((prev) => {
       const next = { ...prev };
@@ -52,7 +72,7 @@ export function ReviewQueue({ items }: { items: ReviewItem[] }) {
         <div>
           <h1>Review queue</h1>
           <p className="muted">
-            Nothing extracted is used until a person approves it. {totals.done} of {totals.all} values reviewed.
+            {totals.done} of {totals.all} values reviewed
           </p>
         </div>
         <div
@@ -68,7 +88,8 @@ export function ReviewQueue({ items }: { items: ReviewItem[] }) {
       </div>
 
       <div className="rq__grid">
-        <nav className="rq__list panel panel--flush" aria-label="Documents waiting for review">
+        <nav className="rq__list" aria-label="Documents waiting for review">
+          <h2 className="rq__colhead">Documents</h2>
           <ul>
             {items.map((it) => {
               const pending = pendingIn(it);
@@ -83,10 +104,16 @@ export function ReviewQueue({ items }: { items: ReviewItem[] }) {
                       setHoverField(undefined);
                     }}
                   >
-                    <span className="doc-btn__name mono">{it.file}</span>
+                    <span className="doc-btn__name mono">
+                      <FileName name={it.file} />
+                    </span>
                     <span className="doc-btn__meta">
-                      {it.docType} · {it.supplier}
-                      {it.language === "fr" ? <span className="lang">FR</span> : null}
+                      {it.docType}, {it.supplier}
+                      {it.language === "fr" ? (
+                        <span className="lang" title="French source">
+                          FR
+                        </span>
+                      ) : null}
                     </span>
                     <span className={`doc-btn__count${pending ? "" : " doc-btn__count--done"}`}>
                       {pending ? `${pending} to review` : "Done"}
@@ -98,13 +125,13 @@ export function ReviewQueue({ items }: { items: ReviewItem[] }) {
           </ul>
         </nav>
 
-        <section className="rq__preview panel" aria-labelledby="preview-title">
-          <div className="panel__head">
-            <h2 id="preview-title" className="mono preview-title">
-              {item.file}
+        <section className="rq__preview" aria-labelledby="preview-title">
+          <div className="rq__preview-head">
+            <h2 id="preview-title" className="rq__colhead mono preview-title">
+              <FileName name={item.file} />
             </h2>
             <span className="muted small">
-              Page 1 · read {item.method === "ocr" ? "by OCR" : "from the text layer"}
+              Page 1, {item.method === "ocr" ? "scanned (OCR)" : "text layer"}
             </span>
           </div>
           <div className="paper" lang={item.language}>
@@ -114,14 +141,13 @@ export function ReviewQueue({ items }: { items: ReviewItem[] }) {
               </p>
             ))}
           </div>
-          <p className="muted small">
-            Preview of the original. The highlighted line is where the selected value was read.
-          </p>
         </section>
 
         <section className="rq__fields" aria-labelledby="fields-title">
           <div className="rq__fields-head">
-            <h2 id="fields-title">Extracted values</h2>
+            <h2 id="fields-title" className="rq__colhead">
+              Extracted values
+            </h2>
             <button type="button" className="btn btn--sm" disabled={!confidentPending} onClick={approveConfident}>
               Approve {confidentPending} at 95%+
             </button>

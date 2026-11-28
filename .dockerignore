@@ -9,6 +9,10 @@ backend/*
 !backend/HackthonSpurs.Worker/**
 !backend/reader-fixture/
 !backend/reader-fixture/**
+!backend/reader-spur/
+!backend/reader-spur/**
+!backend/HackthonSpurs.Resources/
+!backend/HackthonSpurs.Resources/**
 **/bin/
 **/obj/
 !backend/NuGet.Config

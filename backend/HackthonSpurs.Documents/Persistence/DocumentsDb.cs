@@ -1,3 +1,4 @@
+using HackthonSpurs.Resources;
 using Microsoft.EntityFrameworkCore;
 
 namespace HackthonSpurs.Documents.Persistence;
@@ -12,6 +13,7 @@ public sealed class DocumentJob
     public Guid OperationKey { get; set; }
     public required string Sha256 { get; set; }
     public required string MediaType { get; set; }
+    public bool SendToOcr { get; set; }
     public long ByteCount { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public JobState State { get; set; }
@@ -23,10 +25,16 @@ public sealed class DocumentJob
     public string? ResultJson { get; set; }
 }
 
+/// <summary>Configure persistence for document jobs and their reading results.</summary>
+/// <param name="options">EF Core provider and connection options.</param>
 public sealed class DocumentsDb(DbContextOptions<DocumentsDb> options) : DbContext(options)
 {
     public DbSet<DocumentJob> Documents => Set<DocumentJob>();
+    public DbSet<DocumentIndexJob> IndexJobs => Set<DocumentIndexJob>();
+    public DbSet<DocumentChunk> Chunks => Set<DocumentChunk>();
 
+    /// <summary>Configure job mappings, uniqueness and state constraints.</summary>
+    /// <param name="model">EF Core model builder.</param>
     protected override void OnModelCreating(ModelBuilder model)
     {
         var job = model.Entity<DocumentJob>();
@@ -39,9 +47,10 @@ public sealed class DocumentsDb(DbContextOptions<DocumentsDb> options) : DbConte
         });
         job.HasKey(d => d.Id);
         job.Property(d => d.Id).ValueGeneratedNever();
-        job.HasIndex(d => d.OperationKey).IsUnique().HasDatabaseName("ux_document_operation");
+        job.HasIndex(d => d.OperationKey).IsUnique().HasDatabaseName(Wire.OperationIndex);
         job.Property(d => d.Sha256).HasMaxLength(64);
         job.Property(d => d.State).HasConversion<string>();
         job.Property(d => d.ResultJson).HasColumnType("jsonb");
+        IndexMappings.Configure(model);
     }
 }

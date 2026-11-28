@@ -5,6 +5,9 @@ export interface CurrentUser {
   role: string;
 }
 
+/** Derive the letters displayed in the user avatar.
+ * @param name - User display name.
+ */
 function initials(name: string) {
   return name
     .split(/\s+/)
@@ -14,6 +17,10 @@ function initials(name: string) {
     .join("");
 }
 
+/** Show the current user's display name, role and avatar.
+ * @param props - Component inputs.
+ * @param props.user - Current user's display details.
+ */
 export function UserCard({ user }: { user: CurrentUser }) {
   return (
     <div className="user-card">

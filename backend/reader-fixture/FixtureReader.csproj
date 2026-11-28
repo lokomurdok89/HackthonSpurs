@@ -3,4 +3,7 @@
     <TargetFramework>net10.0</TargetFramework><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup><EmbeddedResource Include="worker-demo.csv" LogicalName="worker-demo.csv" /></ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../HackthonSpurs.Resources/HackthonSpurs.Resources.csproj" />
+  </ItemGroup>
 </Project>

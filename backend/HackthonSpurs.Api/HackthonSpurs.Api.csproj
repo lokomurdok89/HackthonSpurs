@@ -8,4 +8,7 @@
     <ProjectReference Include="../HackthonSpurs.Documents/HackthonSpurs.Documents.csproj" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.15" PrivateAssets="all" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../HackthonSpurs.Resources/HackthonSpurs.Resources.csproj" />
+  </ItemGroup>
 </Project>

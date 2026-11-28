@@ -16,6 +16,9 @@ const jobs = new Map<string, MockJob>();
 const byKey = new Map<string, string>();
 const MAX_BYTES = 20 * 1024 * 1024;
 
+/** Derive synthetic job progress from the fixture name and submission time.
+ * @param job - In-memory fixture job.
+ */
 function stateFor(job: MockJob): DocumentStatus {
   const age = Date.now() - job.createdAt;
   if (job.name.toLowerCase().includes("corrupt")) {
@@ -29,6 +32,10 @@ function stateFor(job: MockJob): DocumentStatus {
 }
 
 export const mockApi: DocumentApi = {
+  /** Create or replay an in-memory receipt for a synthetic upload.
+   * @param file - File selected for this submission.
+   * @param key - Mock operation key used for replay.
+   */
   async upload(file, key) {
     const ext = file.name.split(".").pop()?.toLowerCase();
     if (!ext || !["pdf", "xlsx", "csv"].includes(ext)) {
@@ -54,12 +61,18 @@ export const mockApi: DocumentApi = {
     return { id };
   },
 
+  /** Return simulated progress for a known mock job.
+   * @param id - Document receipt identifier.
+   */
   async status(id) {
     const job = jobs.get(id);
     if (!job) throw new ApiError({ status: 404, code: "document_not_found", title: "Not Found" });
     return stateFor(job);
   },
 
+  /** Return invented fragments only after the mock job reaches completion.
+   * @param id - Document receipt identifier.
+   */
   async result(id): Promise<ReadResult> {
     const job = jobs.get(id);
     if (!job) throw new ApiError({ status: 404, code: "document_not_found", title: "Not Found" });
@@ -74,12 +87,12 @@ export const mockApi: DocumentApi = {
       readerVersion: "mock-0.1",
       fragments: isCsv ? [{ method: "native", locator: { kind: "csvCell", row: 2, column: 1 }, text: "CAS-014" }] : isSheet
         ? [
-            { method: "native", locator: { kind: "cells", sheet: "Materiales", range: "A12:D12" }, text: "CAS-014 | Bushing, machined | CERT-027 | 2" },
-          ]
+          { method: "native", locator: { kind: "cells", sheet: "Materiales", range: "A12:D12" }, text: "CAS-014 | Bushing, machined | CERT-027 | 2" },
+        ]
         : [
-            { method: "native", locator: { kind: "page", page: 1 }, text: "Certificate CERT-027 · Part CAS-014 · Grade 4140" },
-            { method: "ocr", locator: { kind: "page", page: 2 }, text: "Supplier address: 100 Example Rd, Example City" },
-          ],
+          { method: "native", locator: { kind: "page", page: 1 }, text: "Certificate CERT-027 · Part CAS-014 · Grade 4140" },
+          { method: "ocr", locator: { kind: "page", page: 2 }, text: "Supplier address: 100 Example Rd, Example City" },
+        ],
       warnings: isCsv || isSheet
         ? []
         : [{ code: "partial_page", message: "Could not read the origin section; review the original page.", locator: { kind: "page", page: 2 } }],

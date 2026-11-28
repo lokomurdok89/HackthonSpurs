@@ -1,6 +1,8 @@
 services:
   postgres:
-    image: postgres:18.4-alpine3.23
+    build: ./backend/postgres-vector
+    image: hackthonspurs/postgres-vector:18.4-alpine3.23-v0.8.2
+    pull_policy: build
     environment:
       POSTGRES_DB: documents
       POSTGRES_USER: documents
@@ -20,7 +22,7 @@ services:
       ConnectionStrings__Documents: "Host=postgres;Database=documents;Username=documents;Timeout=5;Command Timeout=10"
       PGPASSWORD: ${POSTGRES_PASSWORD:?Set a local database password}
       Storage__Root: /data/originals
-      Storage__MaxFileBytes: ${UPLOAD_MAX_BYTES:-20971520}
+      Storage__MaxFileBytes: "${UPLOAD_MAX_BYTES:-}"
     ports:
       - "127.0.0.1:${API_PORT:-5080}:8080"
     volumes:

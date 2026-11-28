@@ -1,28 +1,35 @@
+using HackthonSpurs.Resources;
 using System.Security.Cryptography;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Logging.AddFilter("Microsoft.AspNetCore", LogLevel.Warning);
-builder.WebHost.ConfigureKestrel(k => k.Limits.MaxRequestBodySize = 1024);
+builder.Logging.AddFilter(Wire.AspNetLogCategory, LogLevel.Warning);
+builder.WebHost.ConfigureKestrel(k => k.Limits.MaxRequestBodySize = Policy.MaxFixtureBytes);
 var app = builder.Build();
-using var embedded = typeof(Program).Assembly.GetManifestResourceStream("worker-demo.csv")!;
+using var embedded = typeof(Program).Assembly.GetManifestResourceStream(Wire.FixtureResource)!;
 using var known = new MemoryStream();
-embedded.CopyTo(known);
+await embedded.CopyToAsync(known);
 var fixture = known.ToArray();
 
-app.MapPost("/internal/read", async (HttpRequest request, CancellationToken ct) =>
+// Return the known CSV cell only when the private request matches the embedded bytes.
+// request: Bounded internal upload and correlation headers. ct: Request cancellation.
+app.MapPost(Wire.PrivateRead, async (HttpRequest request, CancellationToken ct) =>
 {
-    if (request.Headers["X-Reader-Contract"] != "1" ||
-        !Guid.TryParseExact(request.Headers["X-Document-Id"], "D", out var id))
-        return Results.BadRequest();
-    if (request.ContentType != "text/csv" || request.ContentLength != fixture.Length)
-        return Results.StatusCode(415);
+    if (request.Headers[Wire.ReaderContractHeader] != Wire.Version ||
+        !Guid.TryParseExact(request.Headers[Wire.DocumentHeader], "D", out var id))
+        return Results.StatusCode(Errors.InvalidFixtureRequest.HttpStatus!.Value);
+    if (request.ContentType != Media.Csv || request.ContentLength != fixture.Length)
+        return Results.StatusCode(Errors.UnsupportedFixture.HttpStatus!.Value);
     var bytes = new byte[fixture.Length];
     await request.Body.ReadExactlyAsync(bytes, ct);
-    if (!CryptographicOperations.FixedTimeEquals(bytes, fixture)) return Results.UnprocessableEntity();
-    return Results.Ok(new {
-        documentId = id, version = "1", readerVersion = "synthetic-fixture/1",
-        fragments = new[] { new { method = "native", locator = new { kind = "csvCell", row = 2, column = 1 },
-            text = "DEMO-ONLY-014" } }, warnings = Array.Empty<object>()
+    if (!CryptographicOperations.FixedTimeEquals(bytes, fixture)) return Results.StatusCode(Errors.FixtureMismatch.HttpStatus!.Value);
+    return Results.Ok(new
+    {
+        documentId = id,
+        version = Wire.Version,
+        readerVersion = Wire.FixtureVersion,
+        fragments = new[] { new { method = Wire.Native, locator = new { kind = Wire.CsvCell, row = Wire.FixtureRow, column = Wire.FixtureColumn },
+            text = Wire.FixtureText } },
+        warnings = Array.Empty<object>()
     });
 });
 await app.RunAsync();

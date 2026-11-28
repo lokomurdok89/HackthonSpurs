@@ -1,7 +1,9 @@
 # HackthonSpurs · Document API
 
-Local, single-user API for the Track 2 demo. It accepts PDF, XLSX and CSV uploads, stores the original privately, and queues one durable PostgreSQL job per operation. It serves status and persisted reading results using the [published OpenAPI contract](docs/api/openapi.json). **Default: API and database only.** The optional [synthetic Worker demo](#run-the-synthetic-worker-demo) processes one known CSV. It is not OCR. All other uploads stay queued.
+Local, single-user API for the Track 2 demo. It accepts PDF, XLSX and CSV uploads, stores the original privately, and queues one durable PostgreSQL job per operation. It serves status and persisted reading results using the [published OpenAPI contract](docs/api/openapi.json). **Default: API and database only.** The optional [synthetic Worker demo](#run-the-synthetic-worker-demo) processes one known CSV. It is not OCR. Other PDF/XLSX/CSV uploads stay queued. For document OCR, enable the SPUR overlay below.
 
+- [Optional isolated SPUR vision reader](docs/spur-ocr.md) — one authorized page image per request; document upload, queued reading and transcript in Documents.
+- [Optional semantic search](docs/semantic-search.md) — automatically index readable OCR transcripts, then follow ranked excerpts to their original page.
 - [Architecture and first demo walkthrough](docs/ARCHITECTURE.md)
 - [Run the React UI against the local API](frontend/README.md)
 - [Frontend integration guide and synthetic examples](docs/api/README.md)
@@ -66,8 +68,9 @@ pwsh -NoProfile -File tests/contract/Test-DocumentContract.ps1
 python -B tests/integration/test_document_api.py
 dotnet run --project tests/worker/WorkerContract.Tests.csproj -c Release
 python -B tests/integration/test_document_worker.py
+python -B tests/integration/test_semantic_index.py
 ```
 
-The build requires the .NET 10 SDK; PowerShell 7.6 runs the offline contract checks. The integration suite requires Python 3, Docker and Compose; it builds a private, randomly named project on an ephemeral loopback port, creates its own secret and removes **only that project's** test containers, volumes and image afterwards. It checks real multipart requests, idempotency races, input limits, persisted results/terminal errors, restart durability and a database outage. No external OCR or production credentials are used. If a subnet override is needed for tests, set `COMPOSE_FILE` to both Compose filenames using the platform separator and choose an unused `SPURS_SUBNET`.
+The build requires the .NET 10 SDK; PowerShell 7.6 runs the offline contract checks. The semantic browser suite additionally requires the [frontend and Playwright setup](frontend/README.md#checks). The integration suite requires Python 3, Docker and Compose; it builds a private, randomly named project on an ephemeral loopback port, creates its own secret and removes **only that project's** test containers, volumes and image afterwards. It checks real multipart requests, idempotency races, input limits, persisted results/terminal errors, restart durability and a database outage. No external OCR or production credentials are used. If a subnet override is needed for tests, set `COMPOSE_FILE` to both Compose filenames using the platform separator and choose an unused `SPURS_SUBNET`.
 
-For schema work, run `dotnet tool restore` from `backend/`. With the API's native development settings supplied, run `dotnet ef migrations has-pending-model-changes --project HackthonSpurs.Documents --startup-project HackthonSpurs.Api` from `backend/`. Only the API owns migrations. The runtime dependency is the Npgsql EF Core provider; EF design tooling is private to the build/authoring workflow.
+For schema work, use the EF CLI on the same major version as the backend (.NET 10). With the API's native development settings supplied, run `dotnet ef migrations has-pending-model-changes --project HackthonSpurs.Documents --startup-project HackthonSpurs.Api` from `backend/`. Only the API owns migrations. The runtime dependency is the Npgsql EF Core provider; EF design tooling is private to the build/authoring workflow.

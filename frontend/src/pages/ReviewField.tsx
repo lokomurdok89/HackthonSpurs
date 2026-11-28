@@ -14,12 +14,14 @@ const STATUS_LABEL: Record<ReviewStatus, string> = {
   rejected: "Rejected",
 };
 
+/** Map the supplied technical confidence score to its UI band. */
 function confidenceLevel(c: number): "high" | "mid" | "low" {
   if (c >= 0.95) return "high";
   if (c >= 0.9) return "mid";
   return "low";
 }
 
+/** Render a review field and its current decision; expose focus and decision actions and highlight if requested. */
 export function FieldRow({
   field,
   decision,
@@ -84,12 +86,12 @@ export function FieldRow({
       {field.quote ? (
         <div className="field__quote">
           <span className="mono">“{field.quote}”</span>
-          {field.translation ? <span className="muted"> · EN: {field.translation}</span> : null}
+          {field.translation ? <span className="field__en muted">English: {field.translation}</span> : null}
         </div>
       ) : null}
 
       <div className="field__bottom">
-        <span className="mono muted small">{field.where}</span>
+        <span className="muted small">{field.where}</span>
         {decision.status === "pending" ? (
           <div className="field__actions">
             <button type="button" className="btn btn--sm btn--ok" onClick={() => onDecide({ status: "approved" })}>
@@ -104,7 +106,7 @@ export function FieldRow({
           </div>
         ) : (
           <div className="field__actions">
-            <span className={`status status--${decision.status}`}>{STATUS_LABEL[decision.status]}</span>
+            <span className={`stamp status status--${decision.status}`}>{STATUS_LABEL[decision.status]}</span>
             <button type="button" className="btn btn--sm btn--ghost" onClick={() => onDecide({ status: "pending" })}>
               Undo
             </button>

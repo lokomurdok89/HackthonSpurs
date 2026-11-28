@@ -20,7 +20,7 @@ Queue and result writes are separate from HTTP execution: a crash can repeat rea
 
 ## Before connecting the hackathon OCR
 
-Obtain the provider's technical guide (no secrets in Git). Confirm runtime/location, authorization to transfer files, retention, authentication, supported formats, request and result limits, locators, warning semantics, sync/async operation and timeout behavior. Keep credentials on the reader side. Replace the fixture-only eligibility and validator deliberately; do not just change the URL or treat synthetic results as provider evidence. Google OCR is not part of this plan.
+The separate [SPUR adapter](spur-ocr.md) now implements the page-image transport; it does not change fixture eligibility. A separate document Worker renders uploads submitted with Send to OCR. Before enabling automated processing, obtain the event-specific provider guidance (no secrets in Git). Confirm runtime/location, authorization to transfer files, retention, authentication, supported formats, request and result limits, locators, warning semantics, sync/async operation and timeout behavior. Keep credentials on the reader side. Replace the fixture-only eligibility and validator deliberately; do not just change the URL or treat synthetic results as provider evidence. Google OCR is not part of this plan.
 
 ## Checks
 
