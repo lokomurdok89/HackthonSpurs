@@ -37,6 +37,10 @@ internal static class IndexingChecks
         Check.Require((await useCase.RunOnceAsync(default))?.Outcome == Errors.EmbeddingProviderUnavailable.Code &&
             jobs.Failure is { } failed && failed.Claim == claim && failed.Retry == TimeSpan.FromSeconds(Policy.FirstBackoffSeconds),
             "A transient provider failure should retry while the attempt budget remains.");
+        jobs.Claim = claim with { Attempt = Policy.MaxAttempts - 1 };
+        await useCase.RunOnceAsync(default);
+        Check.Require(jobs.Failure is { } later && later.Retry == TimeSpan.FromSeconds(Policy.SecondBackoffSeconds),
+            "A subsequent index failure should retry after the later backoff while attempts remain.");
         jobs.Claim = claim with { Attempt = Policy.MaxAttempts };
         await useCase.RunOnceAsync(default);
         Check.Require(jobs.Failure is { Retry: null }, "Exhausted index attempts must become terminal.");

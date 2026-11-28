@@ -36,6 +36,26 @@ class BackendBoundaries(unittest.TestCase):
         for proj in self.projects:
             self.assertEqual(proj.parent.name, proj.stem)
 
+    def test_solution_groups_reflect_project_roles(self):
+        """Ensure the virtual groups organize all twelve existing projects without silently dropping a harness."""
+        groups = {
+            "Core": {"HackthonSpurs.Domain", "HackthonSpurs.Application"},
+            "Hosts": {"HackthonSpurs.Api", "HackthonSpurs.Worker"},
+            "Adapters": {"HackthonSpurs.Persistence"},
+            "OCR": {"HackthonSpurs.Reader.Spur", "HackthonSpurs.Ocr.Bilevel"},
+            "Testing": {"HackthonSpurs.Reader.Fixture", "Application.Tests", "SpurReader.Tests", "WorkerContract.Tests"},
+            "Shared": {"HackthonSpurs.Resources"},
+        }
+        root = ElementTree.parse(BACKEND / "HackthonSpurs.slnx").getroot()
+        self.assertFalse(root.findall("Project"), "Assign every project to its owning group")
+        folders = root.findall("Folder")
+        self.assertCountEqual([folder.attrib["Name"] for folder in folders], [f"/{name}/" for name in groups])
+        for folder in folders:
+            name = folder.attrib["Name"].strip("/")
+            with self.subTest(group=name):
+                projects = [Path(node.attrib["Path"]).stem for node in folder.findall("Project")]
+                self.assertCountEqual(projects, groups[name])
+
     def test_persistence_project_preserves_ef_identity(self):
         """Keep migration discovery compatible while the project and its database folders use the new name."""
         project = BACKEND / (PREFIX + "Persistence")

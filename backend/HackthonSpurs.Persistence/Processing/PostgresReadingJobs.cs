@@ -1,16 +1,15 @@
 using HackthonSpurs.Application.Processing;
-using HackthonSpurs.Worker.Ocr;
-using HackthonSpurs.Documents.Persistence;
 using HackthonSpurs.Resources;
 using Npgsql;
 using NpgsqlTypes;
 
-namespace HackthonSpurs.Worker.Processing.Queues;
+namespace HackthonSpurs.Documents.Persistence.Processing;
 
 /// <summary>Apply atomic lease and publication operations for one processing lane.</summary>
 /// <param name="data">PostgreSQL connection source.</param>
-/// <param name="spur">Whether the SPUR image lane is selected.</param>
-internal sealed class JobQueue(NpgsqlDataSource data, bool spur) : IReadingJobs
+/// <param name="spur">Whether to claim only explicitly requested OCR jobs.</param>
+/// <param name="fixtureHash">SHA-256 digest allowlisted for the synthetic lane.</param>
+public sealed class PostgresReadingJobs(NpgsqlDataSource data, bool spur, string fixtureHash) : IReadingJobs
 {
     // One statement: recover an expired job or take a queued one, never hold a lock during I/O.
     /// <summary>Acquire an eligible job or fail a final expired lease using database time.</summary>
@@ -34,7 +33,7 @@ internal sealed class JobQueue(NpgsqlDataSource data, bool spur) : IReadingJobs
             FROM candidate c WHERE j."Id" = c."Id"
             RETURNING j."Id", j."LeaseToken", j."Attempt", j."ByteCount", j."MediaType", j."Sha256"
             """);
-        cmd.Parameters.AddWithValue(FixtureLane.Hash);
+        cmd.Parameters.AddWithValue(fixtureHash);
         cmd.Parameters.AddWithValue(Guid.NewGuid());
         cmd.Parameters.AddWithValue(spur ? Policy.OcrAttempts : Policy.MaxAttempts);
         cmd.Parameters.AddWithValue(spur);

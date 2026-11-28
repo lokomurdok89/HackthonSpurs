@@ -1,14 +1,14 @@
-using HackthonSpurs.Resources;
 using System.Globalization;
 using HackthonSpurs.Application.Embeddings;
 using HackthonSpurs.Application.Processing;
+using HackthonSpurs.Resources;
 using Npgsql;
 
-namespace HackthonSpurs.Worker.Indexing;
+namespace HackthonSpurs.Documents.Persistence.Processing;
 
 /// <summary>Claim OCR index work and publish one vector generation transactionally.</summary>
 /// <param name="data">PostgreSQL connection source.</param>
-internal sealed class IndexQueue(NpgsqlDataSource data) : IIndexJobs
+public sealed class PostgresIndexJobs(NpgsqlDataSource data) : IIndexJobs
 {
     /// <summary>Claim an eligible index job or fail its final expired lease.</summary>
     /// <param name="ct">Cancellation for the lease operation.</param>

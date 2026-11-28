@@ -1,12 +1,12 @@
 using HackthonSpurs.Application.Embeddings;
 using HackthonSpurs.Application.Processing;
 using HackthonSpurs.Documents.Embeddings;
+using HackthonSpurs.Documents.Persistence.Processing;
 using HackthonSpurs.Resources;
 using HackthonSpurs.Worker.Indexing;
 using HackthonSpurs.Worker.Ocr;
 using HackthonSpurs.Worker.Ocr.Rendering;
 using HackthonSpurs.Worker.Processing;
-using HackthonSpurs.Worker.Processing.Queues;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -29,7 +29,7 @@ internal static class WorkerComposition
         if (config.GetValue<bool>(SettingNames.IndexWorker))
         {
             SpurEmbeddingSettings.Register(builder.Services, config, builder.Environment.IsEnvironment(SettingNames.TestingEnvironment));
-            builder.Services.AddSingleton<IIndexJobs, IndexQueue>();
+            builder.Services.AddSingleton<IIndexJobs, PostgresIndexJobs>();
             builder.Services.AddSingleton<ProcessIndexJob>();
             builder.Services.AddHostedService<IndexWorker>();
             return true;
@@ -61,7 +61,8 @@ internal static class WorkerComposition
         bool spur = endpoint == new Uri(ServiceDefaults.SpurReader);
         if (!spur && endpoint != new Uri(ServiceDefaults.FixtureReader))
             throw new InvalidOperationException(ResourceText.UnsupportedReader);
-        services.AddSingleton<IReadingJobs>(sp => new JobQueue(sp.GetRequiredService<NpgsqlDataSource>(), spur));
+        services.AddSingleton<IReadingJobs>(sp =>
+            new PostgresReadingJobs(sp.GetRequiredService<NpgsqlDataSource>(), spur, FixtureLane.Hash));
         services.AddSingleton(_ => new HttpClient(new SocketsHttpHandler
         {
             AllowAutoRedirect = false,

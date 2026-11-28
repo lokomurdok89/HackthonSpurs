@@ -42,6 +42,12 @@ internal static class ReadingChecks
         await useCase.RunOnceAsync(default);
         Check.Require(jobs.Completion == new ReadingCompletion(null, Errors.ReaderUnavailable.Code, null),
             "SPUR reading must not retry transient paid OCR calls.");
+
+        jobs.Claim = claim;
+        reader.Outcome = new(Error: Errors.ReaderUnavailable.Code);
+        await useCase.RunOnceAsync(default);
+        Check.Require(jobs.Completion == new ReadingCompletion(null, Errors.ReaderUnavailable.Code, null),
+            "A non-retryable fixture failure must be terminal even with attempts remaining.");
     }
 
     private sealed class Jobs : IReadingJobs
