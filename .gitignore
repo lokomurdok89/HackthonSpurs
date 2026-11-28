@@ -8,3 +8,4 @@
 .vs/
 TestResults/
 __pycache__/
+compose.override.yaml

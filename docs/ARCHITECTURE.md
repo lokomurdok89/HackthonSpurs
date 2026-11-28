@@ -2,20 +2,20 @@
 
 **Scope: local, single-user demonstration.** A user uploads a document, leaves the UI, and comes back to see what could be read and **where it appears in the original**. Finishing a reading job does not establish that a claim is true or that a product complies with a regulation.
 
-**Delivery status:** the .NET 10 API, PostgreSQL persistence, private original-file storage and the three [public operations](api/openapi.json) are implemented. The Worker, reader/OCR and UI are still planned. New uploads remain queued until a Worker exists. Tests use synthetic persisted results to exercise the public reads, not a substitute OCR service. See the [local API runbook](../README.md) and [UI handoff](api/README.md).
+**Delivery status:** the .NET 10 API, PostgreSQL persistence, private original-file storage and the three [public operations](api/openapi.json) are implemented. The React Documents screen uses these operations through a loopback Vite proxy. Products and Review queue still display separate demo data. The opt-in synthetic Worker profile processes one exact fixture through an internal test reader; ordinary uploads remain queued. The hackathon-supplied OCR is not connected. Its interface and data boundary must be confirmed before using it. See the [local API runbook](../README.md) and [UI handoff](api/README.md).
 
 ## 1. System boundaries
 
-Five target services: **React/TypeScript UI, ASP.NET Core API, .NET Worker, document reader/OCR and PostgreSQL**. The API accepts durable work; the Worker will claim it from PostgreSQL and call the reader over HTTP. The reader returns evidence, not decisions. Original files belong on a private volume, not in a sixth service.
+Five target services: **React/TypeScript UI, ASP.NET Core API, .NET Worker, document reader/OCR and PostgreSQL**. The API accepts durable work; the Worker claims eligible fixture jobs from PostgreSQL and calls the reader over HTTP. The reader returns evidence, not decisions. Original files belong on a private volume, not in a sixth service.
 
 ```mermaid
 flowchart LR
-    U["UI · React/TypeScript (planned)"] -->|"Upload and query over HTTP"| A["API · ASP.NET Core 10"]
+    U["UI · React/TypeScript"] -->|"Upload and query over HTTP"| A["API · ASP.NET Core 10"]
     A -->|"Accept work and query persisted state/results"| P[("PostgreSQL")]
     A -->|"Write validated original"| F[("Private original-file volume")]
-    W["Worker · .NET 10 (planned)"] -->|"Claim a job; persist attempt and result"| P
+    W["Worker · .NET 10"] -->|"Claim a job; persist attempt and result"| P
     F -->|"Read by opaque key"| W
-    W -->|"Bounded stream over internal HTTP"| O["Local reader / OCR (planned)"]
+    W -->|"Bounded stream over internal HTTP"| O["Fixture reader · hackathon OCR pending"]
     O -->|"Located fragments or a classified error"| W
 ```
 
@@ -49,7 +49,7 @@ Acceptance is not proof that the file is safe or fully readable. The reader must
 |---|---|---|
 | Acceptance and queries | API saves the original, persists request plus outbox, returns 202 and exposes queries. | Keep durable acceptance, idempotency, hashing and separate read/write paths. New code and public contracts. |
 | Async work | API outbox publisher → RabbitMQ → Worker with inbox, retries and dead-letter queue. | Replace this chain with one PostgreSQL job per document. A single producer and job type do not justify a broker. |
-| OCR | In-process .NET port inside the Worker; local preparation, Google Document AI and a separate Vertex stage. No HTTP OCR server. | Plan a separate internal HTTP process for native reading and OCR. No cloud SDK, prompts, business rules or medical extraction contracts. |
+| OCR | In-process .NET port inside the Worker; local preparation, Google Document AI and a separate Vertex stage. No HTTP OCR server. | Keep the separate internal HTTP boundary. The test double is local; the intended real OCR is supplied by the hackathon, not Google. No cloud SDK, prompts, business rules or medical extraction contracts. |
 | Persistence | Product state in PostgreSQL via EF Core/Npgsql; originals in a private store. MySQL is external and Redis belongs to n8n. | Keep metadata and binary storage separate. Choose PostgreSQL for atomic acceptance and job ownership, not because the reference used it. |
 | Operations | DI/options, correlation, attempts, sanitized logs, health and synthetic tests. | Keep configuration, bounded operations, structured logs and real PostgreSQL tests. Omit clinical workflows, n8n, SISMED, third-party publication and a separate observability platform. |
 
@@ -59,22 +59,22 @@ PostgreSQL enforces uniqueness across API instances and enables short claim tran
 
 | Component | Responsibility |
 |---|---|
-| `src/HackthonSpurs.Api/` | ASP.NET Core 10 host, request validation, multipart streaming, config/DI, safe HTTP errors and queries. Owns EF migrations at startup. |
-| `src/HackthonSpurs.Documents/` | Shared .NET library for ingestion, private original-file storage, file type admission, EF Core/Npgsql mapping and migrations. No dependency on the UI or OCR. |
+| `backend/HackthonSpurs.Api/` | ASP.NET Core 10 host, request validation, multipart streaming, config/DI, safe HTTP errors and queries. Owns EF migrations at startup. |
+| `backend/HackthonSpurs.Documents/` | Shared .NET library for ingestion, private original-file storage, file type admission, EF Core/Npgsql mapping and migrations. No dependency on the UI or OCR. |
 | `tests/contract/`, `tests/integration/` | Offline OpenAPI examples and real HTTP/PostgreSQL acceptance tests, respectively. |
-| `src/web/` (planned) | React, TypeScript, Vite and fetch. Upload form, status and evidence views. Same-origin proxy; no global state manager or WebSockets required. |
-| `src/HackthonSpurs.Worker/` (planned) | .NET BackgroundService, database claims, bounded retries and an HTTP reader client. References Documents, not the API host. |
-| `src/reader/` (planned) | Local Python/FastAPI/Uvicorn service. Evaluate Poppler for PDF text/rasterization, Tesseract for OCR, openpyxl for spreadsheets and the standard CSV library. No LLM required. |
+| `frontend/` | React, TypeScript, Vite and fetch. Document upload, bookmarkable status and reading results; separate sample product/review views. Same-origin proxy; no global state manager or WebSockets required. |
+| `backend/HackthonSpurs.Worker/` | .NET BackgroundService, database claims, bounded retries and an HTTP reader client. References Documents, not the API host. |
+| `backend/reader-fixture/` | Private .NET HTTP test double for a single CSV. No OCR engine, provider SDK, database credentials, originals mount or public port. A future adapter will map the hackathon OCR to the internal boundary. |
 
-The root solution is `HackthonSpurs.slnx`. EF Core with its PostgreSQL provider owns storage and migrations; BCL and ASP.NET Core handle streaming, hashing, ZIP/XML inspection, configuration and HTTP. Pin reader binaries, languages and licenses when that service is added.
+The backend solution is `backend/HackthonSpurs.slnx`. EF Core with its PostgreSQL provider owns storage and migrations; BCL and ASP.NET Core handle streaming, hashing, ZIP/XML inspection, configuration and HTTP. Pin reader binaries, languages and licenses when that service is added.
 
 ## 5. Processing flow and contracts
 
 1. **Upload.** One multipart file and a client-generated UUID operation key per submission. Never trust the filename, and never use it as a path. Enforce a byte cap while streaming, check file content and reject an incompatible declared type. An intentionally repeated submission with a new key is new work.
 2. **Accept.** Write a unique temporary file in the private store, hash its bytes, validate and reserve the operation key in PostgreSQL. Atomically move the file into place before committing metadata and the queued job. Return `202 Accepted`, an ID and a relative `Location` **only after commit**. A unique index arbitrates competing API instances; a replay returns the winning ID even with a different filename. Different bytes under an accepted key yield 409.
-3. **Claim (planned).** The Worker will claim an eligible job in a short transaction, increment its attempt and set an expiring lease/token. Read the original by its opaque ID and verify the hash. Do not hold a database transaction while reading or calling OCR.
-4. **Read (planned).** Internal `POST /internal/read` will take bounded bytes, media type, correlation and contract version, not arbitrary paths or URLs. Return located fragments, method and warnings or a classified error. No direct reader access to SQL. Do not invent confidence values or finalize business extraction fields here.
-5. **Persist and query.** Worker publication must validate result identity, version, bounds and locators, and commit result plus terminal state only for the current lease owner. The API already queries persisted state and results without side effects; see the [wire contract](api/openapi.json) for exact casing, errors and examples. UI must render extracted text as untrusted plain text.
+3. **Claim (synthetic profile).** The Worker claims an eligible job in a short transaction, increment its attempt and set an expiring lease/token. Read the original by its opaque ID and verify the hash. Do not hold a database transaction while reading or calling OCR.
+4. **Read (synthetic profile).** Internal `POST /internal/read` takes bounded bytes, media type, correlation and contract version, not arbitrary paths or URLs. Return located fragments, method and warnings or a classified error. No direct reader access to SQL. Do not invent confidence values or finalize business extraction fields here.
+5. **Persist and query.** The fixture adapter validates result identity, version, bounds and its expected locator, and commits result plus terminal state only for the current lease owner. The API already queries persisted state and results without side effects; see the [wire contract](api/openapi.json) for exact casing, errors and examples. UI must render extracted text as untrusted plain text.
 
 ### 5.1 First demo: from a bill of materials to a supplier certificate
 
@@ -94,14 +94,14 @@ In all three cases, `Completed` refers to the reading job, not the strength of t
 
 ## 6. Persistence, states and failure boundaries
 
-The current migration creates one `document_jobs` row per document: operation key, opaque ID (also the storage key), hash, media type, byte count, acceptance time, state, attempt, optional terminal failure code and optional JSONB reading. A unique index protects the operation key; check constraints tie the presence of the result to `Completed` and the failure code to `Failed`. The three public endpoints do not set terminal states. Worker lease, scheduling and attempt-history fields belong to the next migration, not this delivery.
+The current migration creates one `document_jobs` row per document: operation key, opaque ID (also the storage key), hash, media type, byte count, acceptance time, state, attempt, optional terminal failure code and optional JSONB reading. A unique index protects the operation key; check constraints tie the presence of the result to `Completed` and the failure code to `Failed`. The three public endpoints do not set terminal states. The additive WorkerLeases migration adds nullable ownership token, expiry and next-attempt time. Attempts are counted on the job; there is no separate history table. See the [fixture contract](reader-fixture.md).
 
 | Event | State and behavior |
 |---|---|
 | Acceptance committed | `Queued`, attempt 0. The UI may leave. The API never acknowledges a failed save. |
-| Claim (planned) | `Queued → Processing`; select eligible rows in a stable order with `SKIP LOCKED`, commit the lease, then perform I/O. One active job is sufficient initially. |
-| Timeout or temporary reader outage (planned) | `Processing → Queued` with next eligible time. Initial proposal: three attempts total, delays of 5 s and 30 s. Do not stack another automatic HTTP retry policy. |
-| Worker exits unexpectedly (planned) | Reclaim expired leases using database time, or fail an exhausted job. An expired owner cannot publish a late result or overwrite a subsequent attempt. |
+| Claim (fixture only) | `Queued → Processing`; select eligible rows in a stable order with `SKIP LOCKED`, commit the lease, then perform I/O. One active job is sufficient initially. |
+| Timeout or temporary reader outage | `Processing → Queued` with next eligible time. Three attempts total, delays of 5 s and 30 s. Do not stack another automatic HTTP retry policy. |
+| Worker exits unexpectedly | Reclaim expired leases using database time, or fail an exhausted job. An expired owner cannot publish a late result or overwrite a subsequent attempt. |
 | Permanent error or attempt limit | `Failed` plus a safe failure code. The status endpoint returns 200; result lookup returns 409 with `processing_failed`. Pending results use `result_not_ready`. |
 | Successful or partial reading | Atomically publish `Completed` and the technical result. Preserve page/cell locators and warnings rather than inventing content. |
 
@@ -111,17 +111,17 @@ The target is at-least-once execution, not exactly-once OCR. Keep one current re
 
 ## 7. Local execution and data control
 
-- **Today:** Compose runs PostgreSQL and the API. Only the API is mapped to host loopback for UI integration. The database is internal. When the UI proxy arrives it should become the only exposed service; the Worker and reader should stay private. This demo has no authentication: exposing it remotely requires authentication, per-document authorization and TLS first.
-- **Persistence:** use separate named volumes for the database and original files. The API writes originals; the future Worker should mount them read-only. The reader should only have bounded, ephemeral temporary space. Never put the challenge folder in an image, container mount or build context. Restarts preserve both volumes.
-- **Startup:** Compose waits for PostgreSQL health; only the API migrates. A future Worker waits for the schema and a future reader reports engine/language readiness. API acceptance should stay available during a reader outage if storage and SQL are reachable. Liveness is not proof of processing readiness.
-- **Configuration:** connection settings, private absolute storage path and upload cap are configured per host. Worker-specific endpoint, polling, retries, timeouts and leases are planned. The reader must bound pages, cells, pixels, archive expansion, execution time and output size. Run containers without unnecessary privileges, limit reader memory/CPU, and keep credentials out of Git and the browser bundle.
+- **Today:** Default Compose runs PostgreSQL and the API; the synthetic profile adds the Worker and fixture reader. Only the API is mapped to host loopback for UI integration. The database is internal. The local Vite dev server proxies browser requests to the loopback API; the Worker and reader should stay private. This demo has no authentication: exposing it remotely requires authentication, per-document authorization and TLS first.
+- **Persistence:** use separate named volumes for the database and original files. The API writes originals; the Worker mounts them read-only. The reader should only have bounded, ephemeral temporary space. Never put the challenge folder in an image, container mount or build context. Restarts preserve both volumes.
+- **Startup:** Compose waits for PostgreSQL health; only the API migrates. The Worker retries its claim if the API has not finished migrating. A future real reader will need engine readiness checks. API acceptance should stay available during a reader outage if storage and SQL are reachable. Liveness is not proof of processing readiness.
+- **Configuration:** connection settings, private absolute storage path and upload cap are configured per host. The fixture endpoint is internal; polling, retries, timeouts and lease duration are bounded as documented in the fixture contract. The reader must bound pages, cells, pixels, archive expansion, execution time and output size. Run containers without unnecessary privileges, limit reader memory/CPU, and keep credentials out of Git and the browser bundle.
 - **Privacy:** use opaque IDs, duration, outcome and safe error codes for diagnostics. Never log or publish original names, text, workbook rows, private payloads or secrets. Use invented fixtures, not renamed originals. Demo retention is separate from legal retention obligations for a real evidence file.
 
 ## 8. Delivery order and review
 
 1. **API foundation (this slice):** build and run the two-service stack; accept durable uploads, handle duplicate/concurrent operations, return status and persisted results. Verify restart, database outage and read-only endpoints with invented inputs.
 2. **Worker and internal reader contract:** demonstrate claim → read → validated atomic publication with a synthetic reader; test interruption, expired leases, late responses and the attempt limit.
-3. **Real local reading:** digital, scanned and mixed PDFs, then XLSX/CSV. A digital footer must not hide a scanned page, and a blank cell must not become zero.
+3. **Real reading (pending provider documentation and authorization):** digital, scanned and mixed PDFs, then XLSX/CSV. A digital footer must not hide a scanned page, and a blank cell must not become zero.
 4. **UI and evidence demo:** show all three §5.1 outcomes with the original locator visible. Verify recovery after closing the UI. Do not confuse infrastructure failure with insufficient evidence.
 5. **Before sharing:** review scope, third-party licenses and attribution. Publish only synthetic fixtures. No automated certificate issuance, passport or eligibility decision.
 
