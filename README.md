@@ -12,6 +12,33 @@ Local, authenticated shared-workspace API for the Track 2 demo. It accepts PDF, 
 - [Live API tests against PostgreSQL](tests/integration/test_document_api.py)
 - [DeValpo engineering skill](.agents/skills/devalpo-engineering/SKILL.md) — from this repository, ask Codex: `Use $devalpo-engineering to review this change and explain which checks it needs.`
 
+## Try the local demo without an .env
+
+From a fresh clone of `main`, run this **standalone** Compose file (Linux containers,
+Docker Compose 2.24.4+). No passwords, SPUR account or other environment settings are required:
+
+```sh
+docker compose -f compose.demo.yaml up --build -d --wait
+```
+
+Open **http://127.0.0.1:8081**. Every fresh demo uses the same public fixture accounts:
+
+| Role | Username | Local demo password |
+| --- | --- | --- |
+| Administrator | `demo.admin` | `LocalDemo-Admin-2026` |
+| Reader | `demo.lector` | `LocalDemo-Reader-2026` |
+
+These are public test values, **not secrets**. Use invented data only; never publish this port,
+forward it through a tunnel or proxy, or combine this file with the full SPUR stack.
+The demo has its own database and originals volumes. Its offline worker processes the
+[synthetic CSV](backend/Testing/HackthonSpurs.Reader.Fixture/worker-demo.csv); it does **not**
+call live OCR or embeddings. For real provider integration, use the private full stack below.
+Restarting does not overwrite a password changed under **Users**. To stop the demo and
+keep its data, run `docker compose -f compose.demo.yaml down`.
+If Docker reports exhausted address pools, choose an **unused** private `SPURS_SUBNET` for
+this demo (not the live stack's subnet) and append `-f compose.subnet.yaml` after the
+demo file in each command.
+
 ## Run the complete application on one Docker host
 
 Use Linux containers and a current Docker Compose with `include` and `!reset` support.

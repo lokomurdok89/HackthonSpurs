@@ -10,6 +10,12 @@ Origin Vault has one shared internal workspace. Accounts are local to the instal
 | Upload or send a document for OCR; use review editing controls | No | No | Yes |
 | List/create users, edit roles, reset passwords, deactivate/reactivate | No | No | Yes |
 
+## Public fixture accounts
+
+The [standalone local demo](../README.md#try-the-local-demo-without-an-env) sets both initial
+passwords in Compose for a new, loopback-only synthetic workspace. No private environment is
+needed. These public defaults do not apply to the base or full SPUR stacks.
+
 ## Seed the local demo
 
 In your private root `.env`, set `Auth__DemoSeedEnabled=true`, then set

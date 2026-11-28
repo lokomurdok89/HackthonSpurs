@@ -163,6 +163,11 @@ Fixture processing can be repeated. External OCR has at most one application-lev
 
 ## 7. Local execution and data control
 
+- **Zero-configuration local demo:** [compose.demo.yaml](../compose.demo.yaml) combines the compiled
+  UI, API, PostgreSQL, synthetic Worker and fixture reader. The two public fixture logins are scoped
+  to this separate Compose project and its demo-only volumes. Only the web gateway has a loopback
+  host port; there is no SPUR service or provider key. Never expose this mode for remote access.
+
 - **Today:** Default Compose runs PostgreSQL and the API; the synthetic profile adds the Worker and fixture reader. Only the API is mapped to host loopback for UI integration. The database is internal. The local Vite dev server proxies browser requests to the loopback API; the Worker and reader should stay private. The [workspace access boundary](workspace-access.md) uses local accounts, revocable sessions and server-enforced roles. All readers share the same document scope. Do not expose remotely without TLS, deployment hardening and an appropriate per-document authorization model.
 - **Complete single-host demo:** The [full-stack entry point](../compose.full.yaml) composes the same API, PostgreSQL, SPUR reader and both workers with an Nginx gateway serving the compiled React application. Only the loopback web port is published; browser requests to `/api/` stay on the same origin. No changes to CQRS or the storage contracts are required. See the [startup, TLS boundary and recovery instructions](../README.md#run-the-complete-application-on-one-docker-host).
 - **Persistence:** use separate named volumes for the database and original files. The API writes originals; the Worker mounts them read-only. The reader should only have bounded, ephemeral temporary space. Never put the challenge folder in an image, container mount or build context. Restarts preserve both volumes.
