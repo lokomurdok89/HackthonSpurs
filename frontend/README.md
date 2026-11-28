@@ -1,54 +1,26 @@
-# React + TypeScript + Vite
+# Origin Vault · Local frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Use Node 22.12+ or 24 and the committed npm lockfile. Start the API and PostgreSQL using the [root runbook](../README.md#run-locally). From the repository root:
 
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+```sh
+npm --prefix frontend ci
+npm --prefix frontend run dev:api
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Open the printed loopback URL and select **Documents**. In **Local API** mode, the Vite development server forwards `/api/` requests to the loopback API (`API_PORT` from the root Compose environment, default 5080). Do not enable LAN access. No CORS change, credentials in browser code or public endpoint is needed.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+1. Select a synthetic PDF, XLSX or CSV and upload it. A receipt link identifies this operation. A retry after a lost response reuses the same file and key while the form remains open.
+2. Bookmark the receipt link. Navigate away or reload it to resume polling **without uploading again**. Keep a link for each file. No file bytes are stored in browser storage.
+3. With default Compose, uploads stay **Queued · Attempt 0**. To see **Completed** and its located fragment without OCR, enable the [synthetic Worker profile](../README.md#run-the-synthetic-worker-demo) and upload the exact demo CSV. The view handles terminal failure, or displays returned fragments and warnings with their original locators; it does not decide origin or CUSMA eligibility.
 
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
+**Without a backend:** use `npm --prefix frontend run dev` for the labelled in-memory mock; reloading clears mock receipts. Products and Review queue are demo screens, independent of real uploads. They default to the committed synthetic sample. Only for an authorized private demo, explicitly opt into a local override with `VITE_LOCAL_DEMO=true` in default development mode; private demo modules are not part of production builds. Never put secrets in `VITE_*` variables.
+
+## Checks
+
+```sh
+npm --prefix frontend run lint
+npm --prefix frontend run build
+python -B tests/integration/test_document_ui.py
 ```
+
+The browser smoke test requires local Docker, Python Playwright, Chromium and the web dependencies above. Set `SPURS_BROWSER_CHANNEL=chrome` to use an installed Google Chrome. It starts an isolated PostgreSQL/API stack and temporary Vite server, uses synthetic input, simulates a lost receipt, verifies replay and reload, seeds a separate warning example privately, and independently uploads the exact demo CSV and displays the real Worker publication. It never runs OCR or imports challenge data.

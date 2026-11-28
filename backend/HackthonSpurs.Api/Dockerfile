@@ -4,7 +4,8 @@ COPY backend/NuGet.Config backend/
 COPY backend/HackthonSpurs.Api/*.csproj backend/HackthonSpurs.Api/
 COPY backend/HackthonSpurs.Documents/*.csproj backend/HackthonSpurs.Documents/
 RUN dotnet restore backend/HackthonSpurs.Api
-COPY backend/ backend/
+COPY backend/HackthonSpurs.Api/ backend/HackthonSpurs.Api/
+COPY backend/HackthonSpurs.Documents/ backend/HackthonSpurs.Documents/
 RUN dotnet publish backend/HackthonSpurs.Api -c Release --no-restore -o /publish
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0.11

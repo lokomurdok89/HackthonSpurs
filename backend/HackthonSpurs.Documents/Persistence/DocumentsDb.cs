@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 namespace HackthonSpurs.Documents.Persistence;
 
 // A single job per uploaded document: inserting one row queues it atomically.
-// The future Worker updates the same row for terminal state and result publication.
+// The Worker updates the same row for terminal state and result publication.
 public enum JobState { Queued, Processing, Completed, Failed }
 
 public sealed class DocumentJob
@@ -16,6 +16,9 @@ public sealed class DocumentJob
     public DateTimeOffset CreatedAt { get; set; }
     public JobState State { get; set; }
     public int Attempt { get; set; }
+    public Guid? LeaseToken { get; set; }
+    public DateTimeOffset? LeaseUntil { get; set; }
+    public DateTimeOffset? NextAttemptAt { get; set; }
     public string? FailureCode { get; set; }
     public string? ResultJson { get; set; }
 }

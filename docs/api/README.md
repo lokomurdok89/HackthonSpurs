@@ -2,7 +2,7 @@
 
 [OpenAPI contract](openapi.json) · [Architecture and demo walkthrough](../ARCHITECTURE.md)
 
-**Status: locally implemented.** Run the [API and PostgreSQL](../../README.md) or use the invented examples below without any backend. The Worker and OCR are not implemented; live uploads remain queued. No public deployment or access to the event dataset is required. The OpenAPI file is the source of truth for field names, casing, media types, examples and errors.
+**Status: locally implemented.** Run the [API and PostgreSQL](../../README.md) or use the invented examples below without any backend. The [Documents screen](../../frontend/README.md) supports both modes and labels them separately. Only the [optional synthetic Worker profile](../../README.md#run-the-synthetic-worker-demo) publishes a reading for the exact demo CSV. Other live uploads remain queued. There is no OCR provider connection. No public deployment or access to the event dataset is required. The OpenAPI file is the source of truth for field names, casing, media types, examples and errors.
 
 ## Upload → poll → read
 
@@ -50,4 +50,4 @@ For an HTTP mock, if [Prism](https://github.com/stoplightio/prism/blob/master/do
 
 ## Verification and delivery boundary
 
-Run `pwsh -NoProfile -File tests/contract/Test-DocumentContract.ps1` from the repository root (PowerShell 7.6). It checks the named response examples against their schemas offline, including negative cases. Run `python -B tests/integration/test_document_api.py` to exercise real HTTP and PostgreSQL: durable acceptance, concurrent replay, persisted state/result reads and terminal errors. Worker transitions and result payloads are seeded privately in the test database; these tests do not certify a running reader or Worker.
+Run `pwsh -NoProfile -File tests/contract/Test-DocumentContract.ps1` from the repository root (PowerShell 7.6). It checks the named response examples against their schemas offline, including negative cases. Run `python -B tests/integration/test_document_api.py` to exercise real HTTP and PostgreSQL: durable acceptance, concurrent replay, persisted state/result reads and terminal errors. Worker transitions and result payloads are seeded privately in the test database; these API-only tests do not certify the Worker. The separate Worker and browser suites run the private fixture reader and verify publication without seeding the successful result.
