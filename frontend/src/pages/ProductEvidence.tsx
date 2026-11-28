@@ -2,13 +2,14 @@ import { useState } from "react";
 import type { ProductEvidence as Product } from "../data/types";
 import { cad, numberSources, summarize } from "../data/evidence";
 import { BomTable, SourcesList } from "./BomTable";
+import { CertificationDraft } from "./CertificationDraft";
 import { CostLedger } from "./CostLedger";
 import { FindingsPanel } from "./FindingCard";
 import { GapPlanner } from "./GapPlanner";
 import { SupplierView } from "./SupplierView";
 import "./ProductEvidence.css";
 
-type TabId = "plan" | "suppliers" | "bom" | "sources";
+type TabId = "plan" | "suppliers" | "bom" | "sources" | "certification";
 
 /** Focus the element at the supplied ID after rendering and position it using the selected block alignment. */
 function focusLater(id: string, block: ScrollLogicalPosition) {
@@ -21,7 +22,7 @@ function focusLater(id: string, block: ScrollLogicalPosition) {
 }
 
 /** Render the given product's evidence, findings, cost and supplier workspaces. */
-export function ProductEvidence({ product }: { product: Product }) {
+export function ProductEvidence({ product, manufacturer, canEdit }: { product: Product; manufacturer: string; canEdit: boolean }) {
   const { total, byBucket } = summarize(product.bom);
   const highCount = product.findings.filter((f) => f.severity === "high").length;
   const bom = [...product.bom].sort((a, b) => b.costCad - a.costCad);
@@ -38,11 +39,17 @@ export function ProductEvidence({ product }: { product: Product }) {
     setTab("suppliers");
     focusLater("tabs", "start");
   };
+  /** Open the certification checklist and focus its section. */
+  const goToCertification = () => {
+    setTab("certification");
+    focusLater("tabs", "start");
+  };
   const tabs: { id: TabId; label: string; count?: number }[] = [
     { id: "plan", label: "Substantiation plan" },
     { id: "suppliers", label: "Supplier declarations" },
     { id: "bom", label: "Bill of materials", count: product.bom.length },
     { id: "sources", label: "Sources", count: sources.length },
+    { id: "certification", label: "Certification draft" },
   ];
 
   return (
@@ -64,7 +71,7 @@ export function ProductEvidence({ product }: { product: Product }) {
             <button type="button" className="btn" onClick={goToSuppliers}>
               Draft supplier requests
             </button>
-            <button type="button" className="btn btn--primary">
+            <button type="button" className="btn btn--primary" onClick={goToCertification}>
               Prepare certification draft
             </button>
           </div>
@@ -139,6 +146,10 @@ export function ProductEvidence({ product }: { product: Product }) {
           ) : null}
           {tab === "sources" ? (
             <SourcesList sources={sources} />
+          ) : null}
+          {tab === "certification" ? (
+            <CertificationDraft key={product.productId} product={product} manufacturer={manufacturer} canEdit={canEdit}
+              onOpenSuppliers={goToSuppliers} />
           ) : null}
         </div>
       </div>
