@@ -91,3 +91,21 @@ export interface SemanticSearchResponse {
   model: string;
   results: SemanticSearchHit[];
 }
+
+export interface DocumentChunkView {
+  chunkId: Uuid;
+  chunkIndex: number;
+  locator: string;
+  text: string;
+  model: string;
+}
+
+export interface DocumentDetailView {
+  documentId: Uuid;
+  sourceName?: string | null;
+  mediaType: string;
+  byteCount: number;
+  state: string;
+  createdAt: string;
+  chunks: DocumentChunkView[];
+}

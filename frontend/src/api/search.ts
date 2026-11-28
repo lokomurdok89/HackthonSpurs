@@ -1,7 +1,7 @@
 import { getJson, toProblem } from "./client";
 import { ApiError } from "./errors";
 import { workspaceFetch } from "./workspaceFetch";
-import type { DocumentIndexStatus, SearchStats, SemanticSearchResponse } from "./types";
+import type { DocumentDetailView, DocumentIndexStatus, SearchStats, SemanticSearchResponse } from "./types";
 
 /** Read the durable index state without initiating any work.
  * @param id - Document receipt identifier.
@@ -33,4 +33,15 @@ export async function semanticSearch(query: string, documentId: string, topK: nu
   });
   if (!response.ok) throw new ApiError(await toProblem(response));
   return (await response.json()) as SemanticSearchResponse;
+}
+
+/** Read the stored index excerpts for receipt id, cancelled by signal on navigation. */
+export function getDocumentDetail(id: string, signal?: AbortSignal): Promise<DocumentDetailView> {
+  return getJson(`/api/documents/${encodeURIComponent(id)}/chunks`, signal);
+}
+
+/** Queue embeddings from the existing transcript for receipt id; never uploads the original. */
+export async function reindexDocument(id: string) {
+  const response = await workspaceFetch(`/api/documents/${encodeURIComponent(id)}/reindex`, { method: "POST" });
+  if (!response.ok) throw new ApiError(await toProblem(response));
 }

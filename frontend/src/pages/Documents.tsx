@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api, ApiError, apiMode, describeProblem } from "../api/client";
 import { ACCEPT_ATTRIBUTE } from "../api/types";
+import { SemanticSearchPanel } from "./SemanticSearchPanel";
 import { DocumentReading } from "./DocumentReading";
 
 /** Submit a selected file for OCR or local storage, then show its receipt.
@@ -19,6 +20,13 @@ export function Documents({ documentId, page, canUpload }: { documentId: string;
     mounted.current = true;
     return () => { mounted.current = false; };
   }, []);
+
+  /** Select a file without transmitting it and retain independent keys for each submission mode. */
+  function selectFile(file?: File) {
+    if (documentId) window.location.hash = "/documents";
+    setSubmission(file ? { file, localKey: crypto.randomUUID(), ocrKey: crypto.randomUUID() } : undefined);
+    setError("");
+  }
 
   /** Submit the selected file and navigate to its receipt without losing the retry key on network failure.
    * @param event - Upload form submission.
@@ -53,22 +61,27 @@ export function Documents({ documentId, page, canUpload }: { documentId: string;
   }
 
   return (
-    <section>
+    <section className="docs">
       <h1>Documents</h1>
       <p className="notice">{!canUpload
         ? "Read-only access. Open a receipt link or search indexed OCR documents."
         : apiMode === "http"
           ? "Local API · Uploads are saved privately. Send to OCR transcribes the document with SPUR, one printed page at a time. When enabled, semantic indexing uses the readable transcript. Selecting a file sends nothing."
           : "Mock mode · Results are invented, kept in this page session and lost on reload."}</p>
+      {apiMode === "http" && <SemanticSearchPanel />}
       {canUpload && <form className="panel" onSubmit={upload} ref={form}>
-        <label htmlFor="document-file">Select a document</label>{" "}
-        <input id="document-file" type="file" accept={apiMode === "http" ? undefined : ACCEPT_ATTRIBUTE} disabled={busy}
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (documentId) window.location.hash = "/documents";
-            setSubmission(file ? { file, localKey: crypto.randomUUID(), ocrKey: crypto.randomUUID() } : undefined);
-            setError("");
-          }} />
+        <div className="docs__dropzone" onDragOver={(e) => e.preventDefault()} onDrop={(e) => {
+          e.preventDefault();
+          if (!busy && e.dataTransfer.files.length === 1) {
+            form.current?.reset();
+            selectFile(e.dataTransfer.files[0]);
+          }
+        }}>
+          <label htmlFor="document-file">Select a document</label>
+          <input id="document-file" type="file" accept={apiMode === "http" ? undefined : ACCEPT_ATTRIBUTE} disabled={busy}
+            onChange={(e) => selectFile(e.target.files?.[0])} />
+          <span>{submission?.file.name ?? "Or drop one file here."}</span>
+        </div>
         {apiMode === "http" && <>
           <p>PDF, DOCX, XLSX, PPTX, UTF-8 TXT/CSV (up to 20 MiB and 20 printed pages), or PNG/JPEG (4 MiB).
             For other formats, export to PDF first.</p>
@@ -83,7 +96,7 @@ export function Documents({ documentId, page, canUpload }: { documentId: string;
         {error && <p role="alert">{error}</p>}
       </form>}
       {documentId && (/^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i.test(documentId)
-        ? <DocumentReading key={documentId} id={documentId} page={page} />
+        ? <DocumentReading key={documentId} id={documentId} page={page} canReindex={canUpload} />
         : <p role="alert">Invalid document link.</p>)}
     </section>
   );

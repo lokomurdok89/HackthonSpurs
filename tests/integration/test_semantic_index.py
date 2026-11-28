@@ -13,6 +13,7 @@ import test_document_api as api
 import test_document_ui as ui
 from printed_fixtures import pdf
 from test_image_transcript import PNG
+from index_inspector_checks import verify_inspection
 from test_document_worker import wait_state
 
 WORKER = "spur-index-worker"
@@ -111,12 +112,13 @@ class SemanticIndex(ui.DocumentBrowser):
         self.assertEqual(search.value.post_data_json, {"query": text, "topK": 5, "documentId": doc})
         hit = page.get_by_role("link", name="Open reading · Page 2")
         expect(hit).to_be_visible()
-        self.assertTrue(page.locator(".ds__hit").first.get_by_text(text, exact=True).is_visible())
+        expect(page.locator(".ds__hit").first.locator(".docs__excerpt")).to_have_text(text)
         hit.click()
         transcript = page.get_by_role("textbox", name="OCR transcript · Page 2")
         expect(transcript).to_be_focused()
         expect(transcript).to_have_value(text)
         expect(page.locator("input[type=file]")).to_have_count(1)
+        verify_inspection(self, page, doc, index_state)
 
     def test_ineligible_or_empty_readings_do_not_embed(self):
         """Local-only and legacy vector data never appear in the live index, and blank OCR is skipped."""

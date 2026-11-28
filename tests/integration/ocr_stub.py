@@ -17,7 +17,7 @@ class Stub(BaseHTTPRequestHandler):
         assert png or self.headers["Content-Type"] == "image/jpeg"
         assert image.startswith(bytes.fromhex("89504e470d0a1a0a" if png else "ffd8ff"))
         assert len(image) < 80000
-        print(self.headers["X-Document-Id"], flush=True)  # Only synthetic receipt IDs, never payloads.
+        print(self.headers["X-Document-Id"], page, flush=True)  # Only synthetic receipt IDs, never payloads.
         loc = {"kind": "page", "page": page}
         result = {"documentId": self.headers["X-Document-Id"], "version": "1", "readerVersion": "spur/1:offline-test",
                   "fragments": [{"method": "ocr", "locator": loc, "text": f"Rendered page {page}" if png and image[16:24] != bytes.fromhex("0000000100000001") else TEXT}], "warnings": []}

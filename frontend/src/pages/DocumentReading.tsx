@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, ApiError, apiMode, describeProblem } from "../api/client";
+import { DocumentInspector } from "./DocumentInspector";
 import { DocumentIndex } from "./DocumentIndex";
 import type { DocumentStatus, Locator, ReadResult } from "../api/types";
 
@@ -17,11 +18,14 @@ function locationText(loc: Locator) {
 /** Poll a receipt until terminal and show its reading or failure.
  * @param props - Component inputs.
  * @param props.id - Document receipt identifier.
+ * @param props.canReindex - Whether the account can request new embeddings.
  * @param props.page - Optional original page linked from search.
  */
-export function DocumentReading({ id, page }: { id: string; page?: number }) {
+export function DocumentReading({ id, page, canReindex }: { id: string; page?: number; canReindex: boolean }) {
   const [status, setStatus] = useState<DocumentStatus>();
   const [result, setResult] = useState<ReadResult>();
+  const [inspect, setInspect] = useState(false);
+  const [revision, setRevision] = useState(0);
   const [notice, setNotice] = useState("");
   useEffect(() => {
     const controller = new AbortController();
@@ -73,7 +77,11 @@ export function DocumentReading({ id, page }: { id: string; page?: number }) {
         {status?.state === "Failed" && <p>{describeProblem(status.failureCode ?? "processing_failed")} ({status.failureCode})</p>}
         {notice && <p>{notice}</p>}
       </div>
-      {apiMode === "http" && <DocumentIndex id={id} />}
+      {apiMode === "http" && <><DocumentIndex key={revision} id={id} />
+        <button type="button" className="btn" aria-expanded={inspect} onClick={() => setInspect(!inspect)}>Inspect index excerpts</button>
+        {inspect && <DocumentInspector id={id} canReindex={canReindex} onClose={() => setInspect(false)}
+          onReindexed={() => setRevision((r) => r + 1)} />}
+      </>}
       {result && <>
         <h3>Reading · {result.readerVersion}</h3>
         {!result.fragments.length && <p>No readable fragments were returned.</p>}

@@ -27,6 +27,7 @@ builder.Services.AddScoped<GetDocumentStatusHandler>();
 builder.Services.AddScoped<GetDocumentResultHandler>();
 builder.Services.AddScoped<GetDocumentIndexStatusHandler>();
 builder.Services.AddScoped<DocumentSearchService>();
+builder.Services.AddScoped<ReindexTranscriptHandler>();
 SpurEmbeddingSettings.Register(builder.Services, builder.Configuration, builder.Environment.IsEnvironment(SettingNames.TestingEnvironment));
 WorkspaceSecurity.Register(builder.Services);
 
@@ -62,6 +63,9 @@ documents.MapPost("", UploadEndpoint.Handle).RequireAuthorization(Wire.AdminRole
 documents.MapGet(Wire.ById, DocumentQueries.Status);
 documents.MapGet(Wire.Result, DocumentQueries.Result);
 documents.MapGet(Wire.IndexStatus, SearchEndpoints.Status);
+
+documents.MapGet(Wire.Chunks, IndexInspectionEndpoints.Chunks);
+documents.MapPost(Wire.Reindex, IndexInspectionEndpoints.Reindex).RequireAuthorization(Wire.AdminRole);
 
 var search = app.MapGroup(Wire.Search);
 search.MapPost("", SearchEndpoints.Search);

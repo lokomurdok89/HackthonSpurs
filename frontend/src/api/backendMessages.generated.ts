@@ -4,6 +4,7 @@ export const backendMessages: ReadonlyMap<string, string> = new Map([
   ["invalid_document_id", "Invalid document ID."],
   ["document_not_found", "This document ID is unknown."],
   ["idempotency_conflict", "This upload key was already used for a different file. Upload it again as a new submission."],
+  ["index_not_ready", "No completed or failed OCR index is available to rebuild."],
   ["result_not_ready", "The reading is not finished yet."],
   ["processing_failed", "Reading this document failed. Open the original to review it by hand."],
   ["file_too_large", "This file is larger than the configured upload limit."],

@@ -23,6 +23,11 @@
       "status": 409,
       "uiMessage": "This upload key was already used for a different file. Upload it again as a new submission."
     },
+    "IndexNotReady": {
+      "code": "index_not_ready",
+      "message": "No completed or failed OCR index is available to rebuild.",
+      "status": 409
+    },
     "ResultNotReady": {
       "code": "result_not_ready",
       "message": "Document is queued or processing.",
@@ -427,6 +432,8 @@
     "ReaderRole": "reader",
     "ById": "/{id}",
     "Result": "/{id}/result",
+    "Chunks": "/{id}/chunks",
+    "Reindex": "/{id}/reindex",
     "IndexStatus": "/{id}/index-status",
     "Search": "/api/search",
     "Stats": "/stats",

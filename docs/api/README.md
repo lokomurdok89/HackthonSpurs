@@ -67,3 +67,7 @@ For an HTTP mock, if [Prism](https://github.com/stoplightio/prism/blob/master/do
 Run `pwsh -NoProfile -File tests/contract/Test-DocumentContract.ps1` from the repository root (PowerShell 7.6). It checks the named response examples against their schemas offline, including negative cases. Run `python -B tests/integration/test_document_api.py` to exercise real HTTP and PostgreSQL: durable acceptance, concurrent replay, persisted state/result reads and terminal errors. Worker transitions and result payloads are seeded privately in the test database; these API-only tests do not certify the Worker. The separate Worker and browser suites run the private fixture reader and verify publication without seeding the successful result.
 
 The [backend error dictionary](../backend-resources.md) defines safe problem and job codes. `failureCode` may carry a vetted private reader cause; never display raw provider diagnostics.
+
+### Inspect or rebuild an index
+
+Authenticated readers and administrators can call `GET /api/documents/{id}/chunks` to inspect the published excerpts in source order. No originals, vectors or provider calls are involved. An administrator can use the inspector's **Re-index** action (`POST /api/documents/{id}/reindex`, workspace marker required) to queue fresh embeddings from an existing completed OCR transcript. Poll index status after HTTP 202. A local-only receipt or skipped index cannot be upgraded to OCR through this route. There is no synchronous upload-and-index or automatic re-reading of an original.

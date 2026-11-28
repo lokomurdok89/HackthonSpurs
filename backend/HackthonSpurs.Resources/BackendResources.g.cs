@@ -10,6 +10,7 @@ public static class Errors
     public static readonly BackendError InvalidDocumentId = new("invalid_document_id", "Invalid document ID.", 400, false);
     public static readonly BackendError DocumentNotFound = new("document_not_found", "Document not found.", 404, false);
     public static readonly BackendError IdempotencyConflict = new("idempotency_conflict", "This upload key was used for different file content.", 409, false);
+    public static readonly BackendError IndexNotReady = new("index_not_ready", "No completed or failed OCR index is available to rebuild.", 409, false);
     public static readonly BackendError ResultNotReady = new("result_not_ready", "Document is queued or processing.", 409, false);
     public static readonly BackendError ProcessingFailed = new("processing_failed", "Processing failed; no result is available.", 409, false);
     public static readonly BackendError FileTooLarge = new("file_too_large", "File exceeds the upload size limit.", 413, false);
@@ -65,19 +66,19 @@ public static class Errors
         new BackendError[]
         {
             InvalidRequest, InvalidDocumentId, DocumentNotFound, IdempotencyConflict,
-            ResultNotReady, ProcessingFailed, FileTooLarge, UnsupportedMediaType,
-            OcrDisabled, ServiceUnavailable, AuthenticationRequired, InvalidCredentials,
-            Forbidden, WorkspaceRequestRequired, LoginRateLimited, InvalidAuthRequest,
-            UserNotFound, UsernameTaken, LastActiveAdmin, SelfLockout,
-            InvalidSearch, EmbeddingsNotConfigured, EmbeddingProviderTimeout, EmbeddingProviderUnavailable,
-            EmbeddingProviderRejected, EmbeddingResponseInvalid, InvalidReaderRequest, UnsupportedImageType,
-            LengthRequired, ImageTooLarge, EmptyImage, IncompleteImage,
-            InvalidReaderResult, ReaderCredentialsRejected, ReaderRequestRejected, ReaderTimeout,
-            ReaderUnavailable, ReaderRejected, OriginalMismatch, OriginalUnavailable,
-            DocumentTimeout, UnsupportedDocument, DocumentNotRenderable, TooManyPages,
-            RendererUnavailable, LeaseExpired, IndexLeaseExpired, IndexSourceInvalid,
-            NoReadableText, FixtureMismatch, InvalidFixtureRequest, UnsupportedFixture,
-            OcrPageOverBudget, OcrJsonOverBudget,
+            IndexNotReady, ResultNotReady, ProcessingFailed, FileTooLarge,
+            UnsupportedMediaType, OcrDisabled, ServiceUnavailable, AuthenticationRequired,
+            InvalidCredentials, Forbidden, WorkspaceRequestRequired, LoginRateLimited,
+            InvalidAuthRequest, UserNotFound, UsernameTaken, LastActiveAdmin,
+            SelfLockout, InvalidSearch, EmbeddingsNotConfigured, EmbeddingProviderTimeout,
+            EmbeddingProviderUnavailable, EmbeddingProviderRejected, EmbeddingResponseInvalid, InvalidReaderRequest,
+            UnsupportedImageType, LengthRequired, ImageTooLarge, EmptyImage,
+            IncompleteImage, InvalidReaderResult, ReaderCredentialsRejected, ReaderRequestRejected,
+            ReaderTimeout, ReaderUnavailable, ReaderRejected, OriginalMismatch,
+            OriginalUnavailable, DocumentTimeout, UnsupportedDocument, DocumentNotRenderable,
+            TooManyPages, RendererUnavailable, LeaseExpired, IndexLeaseExpired,
+            IndexSourceInvalid, NoReadableText, FixtureMismatch, InvalidFixtureRequest,
+            UnsupportedFixture, OcrPageOverBudget, OcrJsonOverBudget,
         }.ToFrozenDictionary(error => error.Code, StringComparer.Ordinal);
 }
 
@@ -235,6 +236,8 @@ public static class Wire
     public const string ReaderRole = "reader";
     public const string ById = "/{id}";
     public const string Result = "/{id}/result";
+    public const string Chunks = "/{id}/chunks";
+    public const string Reindex = "/{id}/reindex";
     public const string IndexStatus = "/{id}/index-status";
     public const string Search = "/api/search";
     public const string Stats = "/stats";

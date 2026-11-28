@@ -3,7 +3,9 @@ import { apiMode } from "../api/client";
 import { ApiError } from "../api/errors";
 import { getSearchStats, semanticSearch } from "../api/search";
 import type { SearchStats, SemanticSearchHit, SemanticSearchResponse } from "../api/types";
+import { SearchExcerpt } from "./SearchExcerpt";
 import "./DocumentsSearch.css";
+import "./Documents.css";
 
 const RECEIPT_PATTERN = /^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i;
 
@@ -18,9 +20,10 @@ function searchError(error: unknown) {
 
 /** Render one search hit and link back to its exact OCR page in the source receipt.
  * @param props - Component inputs.
+ * @param props.query - Submitted query used for highlighting.
  * @param props.hit - Ranked excerpt with a page locator.
  */
-function SearchHit({ hit }: { hit: SemanticSearchHit }) {
+function SearchHit({ hit, query }: { hit: SemanticSearchHit; query: string }) {
   const { page } = hit.pageLocator;
   return (
     <li className="ds__hit">
@@ -29,16 +32,17 @@ function SearchHit({ hit }: { hit: SemanticSearchHit }) {
         <span>Similarity {Math.round(hit.score * 100)}%</span>
       </div>
       <small>Document {hit.documentId.slice(0, 8)} · {hit.model}</small>
-      <p className="ds__hit-text">{hit.text}</p>
+      <SearchExcerpt text={hit.text} query={query} />
     </li>
   );
 }
 
 /** Show a read-only search workspace; uploads stay on the Documents form.
  * @param props - Component inputs.
+ * @param props.embedded - Show the panel inside the document workspace.
  * @param props.documentId - Optional receipt scope supplied by the route.
  */
-export function DocumentsSearch({ documentId }: { documentId: string }) {
+export function DocumentsSearch({ documentId, embedded = false }: { documentId: string; embedded?: boolean }) {
   const [stats, setStats] = useState<SearchStats>();
   const [statsError, setStatsError] = useState(false);
   const [revision, setRevision] = useState(0);
@@ -90,10 +94,10 @@ export function DocumentsSearch({ documentId }: { documentId: string }) {
     <section className="ds">
       <header className="ds__header">
         <div>
-          <h1>Semantic search</h1>
+          {embedded ? <h2>Semantic search</h2> : <h1>Semantic search</h1>}
           <p>Search indexed OCR text. Each excerpt links to its page in the reading.</p>
         </div>
-        <a href="#/documents">Go to Documents</a>
+        {!embedded && <a href="#/documents">Go to Documents</a>}
       </header>
       {apiMode !== "http" ? <p className="notice">Search requires the local API and SPUR indexing; no mock results are shown.</p> :
         <div className="panel">
@@ -131,7 +135,7 @@ export function DocumentsSearch({ documentId }: { documentId: string }) {
             <h2>Search results</h2>
             {response.results.length === 0
               ? <p>No searchable excerpts for this scope.</p>
-              : <ol className="ds__results">{response.results.map((hit) => <SearchHit key={hit.chunkId} hit={hit} />)}</ol>}
+              : <ol className="ds__results">{response.results.map((hit) => <SearchHit key={hit.chunkId} hit={hit} query={response.query} />)}</ol>}
           </div>}
         </div>}
     </section>

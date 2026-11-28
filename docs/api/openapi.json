@@ -2,11 +2,199 @@
   "openapi": "3.1.0",
   "info": {
     "title": "HackthonSpurs Document API",
-    "version": "0.3.0",
+    "version": "0.4.0",
     "description": "Contract-first, same-origin, local authenticated single-workspace demo. Synthetic examples only. The Worker and reader are private to the backend."
   },
   "security": [{"workspaceCookie":[]}],
   "paths": {
+    "/api/documents/{id}/chunks": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/DocumentId"
+        }
+      ],
+      "get": {
+        "operationId": "getDocumentChunks",
+        "summary": "Inspect indexed excerpts without calling OCR or embeddings",
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/AuthenticationRequired"
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidId"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "200": {
+            "description": "Stored document metadata and compatible excerpts, in source order.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "documentId",
+                    "sourceName",
+                    "mediaType",
+                    "byteCount",
+                    "state",
+                    "createdAt",
+                    "chunks"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "documentId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "sourceName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "mediaType": {
+                      "type": "string"
+                    },
+                    "byteCount": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "state": {
+                      "type": "string"
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "chunks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "chunkId",
+                          "chunkIndex",
+                          "locator",
+                          "text",
+                          "model"
+                        ],
+                        "additionalProperties": false,
+                        "properties": {
+                          "chunkId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "chunkIndex": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "locator": {
+                            "type": "string"
+                          },
+                          "text": {
+                            "type": "string"
+                          },
+                          "model": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "examples": {
+                  "sample": {
+                    "value": {
+                      "documentId": "10000000-0000-4000-8000-000000000001",
+                      "sourceName": null,
+                      "mediaType": "application/pdf",
+                      "byteCount": 120,
+                      "state": "Completed",
+                      "createdAt": "2026-01-01T00:00:00Z",
+                      "chunks": []
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/documents/{id}/reindex": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/DocumentId"
+        }
+      ],
+      "post": {
+        "operationId": "reindexTranscript",
+        "summary": "Administrator: schedule new embeddings from existing OCR without rereading the original",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceRequest"
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/AuthenticationRequired"
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidId"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "description": "Semantic search is not enabled.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                },
+                "examples": {
+                  "sample": {
+                    "value": {
+                      "status": 503,
+                      "title": "Semantic search is not enabled.",
+                      "code": "embeddings_not_configured"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Index is queued or already in progress. No response body."
+          },
+          "403": {
+            "$ref": "#/components/responses/AccessDenied"
+          },
+          "409": {
+            "description": "No completed or failed OCR index is available to rebuild.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                },
+                "examples": {
+                  "sample": {
+                    "value": {
+                      "status": 409,
+                      "title": "No completed or failed OCR index is available to rebuild.",
+                      "code": "index_not_ready"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/auth/login": {
       "post": {
         "operationId": "signIn",

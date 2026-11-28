@@ -61,7 +61,9 @@ $result = $spec.paths['/api/documents/{id}/result'].get
 $index = $spec.paths['/api/documents/{id}/index-status'].get
 $search = $spec.paths['/api/search'].post
 $stats = $spec.paths['/api/search/stats'].get
-Require ($spec.paths.Count -eq 11 -and $upload -and $status -and $result -and $index -and $search -and $stats) 'Unexpected public routes.'
+$chunks = $spec.paths['/api/documents/{id}/chunks'].get
+$reindex = $spec.paths['/api/documents/{id}/reindex'].post
+Require ($spec.paths.Count -eq 13 -and $chunks -and $reindex -and $upload -and $status -and $result -and $index -and $search -and $stats) 'Unexpected public routes.'
 Require ($upload.parameters[0].name -ceq 'Idempotency-Key' -and $upload.parameters[0].required) 'Missing upload key.'
 $ocr = $upload.parameters | Where-Object name -CEQ 'X-OCR-Provider'
 Require ($ocr -and !$ocr.required -and $ocr.schema.enum -ccontains 'spur') 'SPUR must be an explicit optional header.'
@@ -92,7 +94,7 @@ $unsafe = $account.Clone()
 $unsafe.password = 'not-a-returned-field'
 Require (-not (Matches-Schema $spec.components.schemas.WorkspaceUser $unsafe)) 'Credential material allowed in user projection.'
 $count = 0
-foreach ($op in @($upload, $status, $result, $index, $search, $stats)) {
+foreach ($op in @($upload, $status, $result, $index, $search, $stats, $chunks, $reindex)) {
     foreach ($entry in $op.responses.GetEnumerator()) {
         $response = $entry.Value
         if ($response.'$ref') { $response = Resolve-LocalRef $response.'$ref' }
@@ -140,4 +142,4 @@ Require (-not (Matches-Schema $spec.components.schemas.DocumentIndexStatus $inde
 $hit = $search.responses['200'].content['application/json'].examples.hit.value.results[0].Clone()
 $hit.pageLocator = @{kind='page';page=21}
 Require (-not (Matches-Schema $spec.components.schemas.SemanticSearchHit $hit)) 'Out-of-bounds search page accepted.'
-Write-Output "PASS: $count response examples, six document/search operations and workspace access contract, demo fixtures and schema guardrails."
+Write-Output "PASS: $count response examples, eight document/search operations and workspace access contract, demo fixtures and schema guardrails."
