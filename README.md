@@ -73,6 +73,7 @@ pwsh -NoProfile -File tests/quality/Test-ClassSize.ps1
 pwsh -NoProfile -File tests/contract/Test-DocumentContract.ps1
 python -B tests/integration/test_document_api.py
 python -B tests/integration/test_workspace_auth.py
+python -B tests/integration/test_workspace_session_lookup.py
 python -B tests/integration/test_workspace_ui.py
 # Pure use cases: in-memory ports only; no database, provider or Docker.
 dotnet run --project tests/application/Application.Tests.csproj -c Release

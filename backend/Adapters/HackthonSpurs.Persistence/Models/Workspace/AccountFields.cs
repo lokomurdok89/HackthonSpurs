@@ -1,10 +1,9 @@
 using HackthonSpurs.Application.Queries;
-using HackthonSpurs.Documents.Persistence;
 using Microsoft.AspNetCore.Identity;
 
-namespace HackthonSpurs.Api.Auth.Accounts;
+namespace HackthonSpurs.Documents.Persistence;
 
-internal static class AccountFields
+public static class AccountFields
 {
     /// <summary>Create an active user from validated account fields and hash the supplied password.</summary>
     /// <param name="username">Original-cased login name.</param>

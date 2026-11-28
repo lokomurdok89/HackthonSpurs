@@ -7,7 +7,7 @@ BACKEND = Path(__file__).resolve().parents[2] / "backend"
 PREFIX = "HackthonSpurs."
 # These are allowed reference edges, not a requirement to reference an unused project.
 ALLOWED = {
-    "Api": {"Application", "Domain", "Persistence", "Resources"},
+    "Api": {"Application", "Persistence", "Resources"},
     "Worker": {"Application", "Persistence", "Resources"},
     "Persistence": {"Application", "Domain", "Resources"},
     "Application": {"Domain", "Resources"},
@@ -119,10 +119,13 @@ class BackendBoundaries(unittest.TestCase):
                 code = "\n".join(line for line in source.splitlines() if not line.lstrip().startswith("//"))
                 self.assertNotRegex(code, forbidden, f"{path.name} accesses an external adapter directly")
 
-    def test_document_endpoints_do_not_bind_infrastructure(self):
+    def test_endpoint_and_authentication_adapters_do_not_bind_persistence(self):
         """Catch coupling that a project-level check cannot: the API also contains the composition root."""
-        endpoints = self.project_dir("Api") / "Endpoints"
-        for path in [*endpoints.joinpath("Documents").glob("**/*.cs"), *endpoints.joinpath("Search").glob("**/*.cs")]:
+        api = self.project_dir("Api")
+        paths = [path for area in ("Documents", "Search", "Workspace")
+                 for path in (api / "Endpoints" / area).rglob("*.cs")]
+        paths.append(api / "Auth" / "Sessions" / "WorkspaceAuthentication.cs")
+        for path in paths:
             text = path.read_text(encoding="utf-8")
             code = "\n".join(line for line in text.splitlines() if not line.lstrip().startswith("//"))
             self.assertNotRegex(code, r"\b(?:HackthonSpurs\.(?:Documents|Persistence)|Microsoft\.EntityFrameworkCore|Npgsql|Pgvector)\b",

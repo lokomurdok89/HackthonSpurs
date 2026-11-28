@@ -1,11 +1,11 @@
 using System.Threading.RateLimiting;
-using HackthonSpurs.Api.Auth.Accounts;
 using HackthonSpurs.Api.Auth.Sessions;
 using HackthonSpurs.Api.Http;
 using HackthonSpurs.Application.Commands;
 using HackthonSpurs.Application.Queries;
-using HackthonSpurs.Documents.Persistence.Queries;
 using HackthonSpurs.Documents.Persistence;
+using HackthonSpurs.Documents.Persistence.Commands;
+using HackthonSpurs.Documents.Persistence.Queries;
 using HackthonSpurs.Resources;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
@@ -25,9 +25,9 @@ internal static class WorkspaceSecurity
         services.AddSingleton<IPasswordHasher<WorkspaceUser>, PasswordHasher<WorkspaceUser>>();
         services.AddSingleton<DummyCredential>();
         services.AddScoped<WorkspaceSessions>();
-        services.AddScoped<WorkspaceSessionLookup>();
+        services.AddScoped<IWorkspaceSessionLookup, PostgresWorkspaceSessionLookup>();
         services.AddScoped<WorkspaceAccountCommands>();
-        services.AddScoped<IWorkspaceAccountWriter, WorkspaceAccountWriter>();
+        services.AddScoped<IWorkspaceAccountWriter, PostgresWorkspaceAccountWriter>();
         services.AddScoped<IWorkspaceAccountReads, PostgresWorkspaceAccountReads>();
         services.AddAuthentication(Wire.WorkspaceScheme)
             .AddScheme<AuthenticationSchemeOptions, WorkspaceAuthentication>(Wire.WorkspaceScheme, _ => { });

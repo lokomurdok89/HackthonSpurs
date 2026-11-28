@@ -10,7 +10,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../Core/HackthonSpurs.Application/HackthonSpurs.Application.csproj" />
-    <ProjectReference Include="../../Core/HackthonSpurs.Domain/HackthonSpurs.Domain.csproj" />
     <ProjectReference Include="../../Shared/HackthonSpurs.Resources/HackthonSpurs.Resources.csproj" />
   </ItemGroup>
 </Project>

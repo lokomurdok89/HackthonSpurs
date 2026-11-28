@@ -1,4 +1,3 @@
-using HackthonSpurs.Api.Auth.Accounts;
 using HackthonSpurs.Api.Contracts;
 using HackthonSpurs.Application.Commands;
 using HackthonSpurs.Application.Queries;

@@ -1,19 +1,20 @@
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using HackthonSpurs.Api.Http;
+using HackthonSpurs.Application.Queries;
 using HackthonSpurs.Resources;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Options;
 
 namespace HackthonSpurs.Api.Auth.Sessions;
 
-/// <summary>Authenticate workspace requests by looking up the opaque session in PostgreSQL.</summary>
+/// <summary>Authenticate workspace requests by looking up the opaque session.</summary>
 /// <param name="options">Framework scheme settings.</param>
 /// <param name="logger">Framework authentication logger.</param>
 /// <param name="encoder">Framework URL encoder.</param>
 /// <param name="sessions">Read-only workspace session lookup.</param>
 internal sealed class WorkspaceAuthentication(IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger,
-    UrlEncoder encoder, WorkspaceSessionLookup sessions) : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
+    UrlEncoder encoder, IWorkspaceSessionLookup sessions) : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
 {
     /// <summary>Load the authenticated user and keep only the public account summary in request scope.</summary>
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
