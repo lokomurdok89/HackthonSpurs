@@ -6,8 +6,8 @@ export { ApiError };
 
 export interface DocumentApi {
   upload(file: File, idempotencyKey: string): Promise<Receipt>;
-  status(id: string): Promise<DocumentStatus>;
-  result(id: string): Promise<ReadResult>;
+  status(id: string, signal?: AbortSignal): Promise<DocumentStatus>;
+  result(id: string, signal?: AbortSignal): Promise<ReadResult>;
 }
 
 async function toProblem(res: Response): Promise<Problem> {
@@ -22,8 +22,8 @@ async function toProblem(res: Response): Promise<Problem> {
   return { status: res.status, code: "unknown_error", title: "Request failed" };
 }
 
-async function getJson<T>(url: string): Promise<T> {
-  const res = await fetch(url, { headers: { Accept: "application/json" } });
+async function getJson<T>(url: string, signal?: AbortSignal): Promise<T> {
+  const res = await fetch(url, { signal, headers: { Accept: "application/json" } });
   if (!res.ok) throw new ApiError(await toProblem(res));
   return (await res.json()) as T;
 }
@@ -41,19 +41,21 @@ const httpApi: DocumentApi = {
     if (res.status !== 202) throw new ApiError(await toProblem(res));
     return (await res.json()) as Receipt;
   },
-  status: (id) => getJson<DocumentStatus>(`/api/documents/${encodeURIComponent(id)}`),
-  result: (id) => getJson<ReadResult>(`/api/documents/${encodeURIComponent(id)}/result`),
+  status: (id, signal) => getJson<DocumentStatus>(`/api/documents/${encodeURIComponent(id)}`, signal),
+  result: (id, signal) => getJson<ReadResult>(`/api/documents/${encodeURIComponent(id)}/result`, signal),
 };
 
-/** VITE_API_MODE=http talks to the real API; anything else uses the in-browser mock. */
-export const api: DocumentApi = import.meta.env.VITE_API_MODE === "http" ? httpApi : mockApi;
-export const apiMode: "http" | "mock" = import.meta.env.VITE_API_MODE === "http" ? "http" : "mock";
+const mode = import.meta.env.VITE_API_MODE ?? (import.meta.env.MODE === "api" ? "http" : "mock");
+export const apiMode = mode === "http" ? "http" : "mock";
+export const api: DocumentApi = apiMode === "http" ? httpApi : mockApi;
 
 /** Safe, user-facing text for a problem code. Unknown codes get a generic message. */
 export function describeProblem(code: string): string {
   switch (code) {
     case "file_too_large":
-      return "This file is larger than the upload limit (20 MiB).";
+      return "This file is larger than the configured upload limit.";
+    case "invalid_request":
+      return "Select a non-empty document and try again.";
     case "unsupported_media_type":
       return "Only PDF, XLSX and CSV files can be read right now.";
     case "idempotency_conflict":
@@ -67,35 +69,4 @@ export function describeProblem(code: string): string {
     default:
       return "Something went wrong. Try again in a moment.";
   }
-}
-
-/**
- * Poll status until a terminal state, per docs/api/README.md:
- * start at 2 s, back off on errors or 503, cap at 10 s, stop when aborted.
- */
-export async function pollUntilDone(
-  id: string,
-  onStatus: (s: DocumentStatus) => void,
-  signal: AbortSignal,
-): Promise<DocumentStatus | undefined> {
-  let delay = 2000;
-  while (!signal.aborted) {
-    try {
-      const s = await api.status(id);
-      onStatus(s);
-      if (s.state === "Completed" || s.state === "Failed") return s;
-      delay = 2000;
-    } catch (e) {
-      if (e instanceof ApiError && e.problem.code === "document_not_found") throw e;
-      delay = Math.min(delay * 2, 10000);
-    }
-    await new Promise<void>((resolve) => {
-      const t = setTimeout(resolve, delay);
-      signal.addEventListener("abort", () => {
-        clearTimeout(t);
-        resolve();
-      }, { once: true });
-    });
-  }
-  return undefined;
 }

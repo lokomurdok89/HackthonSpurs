@@ -1,36 +1,8 @@
-import type { Finding, ProductEvidence as Product, SourceRef } from "../data/types";
+import type { ProductEvidence as Product } from "../data/types";
 import { EVIDENCE, cad, pct, summarize } from "../data/evidence";
 import "./ProductEvidence.css";
 
-function SourceLink({ source }: { source: SourceRef }) {
-  // Opens the review view for now; will deep-link to the original page or cell once the API serves it.
-  return (
-    <a className="source-link" href="#/review" title={`Open ${source.file} at ${source.where}`}>
-      {source.file} · {source.where}
-    </a>
-  );
-}
-
-function FindingCard({ f }: { f: Finding }) {
-  return (
-    <article className="finding">
-      <div className="finding__meta">
-        <span className={`tag tag--${f.severity}`}>{f.topic}</span>
-        <span className="mono muted">{f.code}</span>
-      </div>
-      <h3 className="finding__title">{f.title}</h3>
-      <p className="finding__body">{f.body}</p>
-      <div className="finding__sources">
-        {f.sources.map((s) => (
-          <SourceLink key={`${s.file}-${s.where}`} source={s} />
-        ))}
-      </div>
-      <p className="finding__next">
-        <strong>Next step:</strong> {f.nextStep}
-      </p>
-    </article>
-  );
-}
+import { FindingCard, SourceLink } from "./FindingCard";
 
 export function ProductEvidence({ product }: { product: Product }) {
   const { total, byBucket, mix, largestUnknown } = summarize(product.bom);
@@ -140,7 +112,7 @@ export function ProductEvidence({ product }: { product: Product }) {
         <section className="panel panel--flush pe__bom" aria-labelledby="bom-title">
           <div className="panel__head panel__head--pad">
             <h2 id="bom-title">Bill of materials and origin evidence</h2>
-            <span className="muted small">Each source opens the original page or cell</span>
+            <span className="muted small">Source links open the example review queue</span>
           </div>
           <div className="table-scroll">
             <table className="bom">
