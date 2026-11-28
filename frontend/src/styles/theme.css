@@ -4,7 +4,9 @@
  * picks a theme, which sets data-theme on <html>.
  */
 
-:root {
+:root,
+/* The buyer passport is always printed-paper light, whatever the app theme. */
+.theme-light {
   /* Layout and type (theme-independent) */
   --topbar-h: 56px;
   --sidebar-w: 248px;
