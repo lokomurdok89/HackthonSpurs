@@ -1,0 +1,40 @@
+# Merged after the base and SPUR files by compose.full.yaml (paths relative to repo root).
+services:
+  postgres:
+    restart: unless-stopped
+  api:
+    restart: unless-stopped
+    ports: !reset []
+  spur-reader:
+    restart: unless-stopped
+    healthcheck:
+      # Check only the private listener; never issue a paid provider request.
+      test: ["CMD", "bash", "-ec", "exec 3<>/dev/tcp/127.0.0.1/8080"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 15s
+  spur-worker:
+    restart: unless-stopped
+  spur-index-worker:
+    profiles: !reset []
+    restart: unless-stopped
+  web:
+    build: ./frontend
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    ports:
+      - "127.0.0.1:${WEB_PORT:-8080}:8080"
+    depends_on:
+      api:
+        condition: service_started
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget -q -O /dev/null http://127.0.0.1:8080/ && wget -S -O /dev/null http://127.0.0.1:8080/api/auth/me 2>&1 | grep -q 'HTTP/1.1 401'
+      interval: 5s
+      timeout: 4s
+      retries: 12
+      start_period: 20s

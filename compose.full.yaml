@@ -1,0 +1,7 @@
+# One entry point for the single-host application; the base/dev profiles remain unchanged.
+name: hackthonspurs-full
+include:
+  - path:
+      - compose.yaml
+      - compose.spur.yaml
+      - deploy/compose.full-services.yaml

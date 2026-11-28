@@ -12,6 +12,42 @@ Local, authenticated shared-workspace API for the Track 2 demo. It accepts PDF, 
 - [Live API tests against PostgreSQL](tests/integration/test_document_api.py)
 - [DeValpo engineering skill](.agents/skills/devalpo-engineering/SKILL.md) — from this repository, ask Codex: `Use $devalpo-engineering to review this change and explain which checks it needs.`
 
+## Run the complete application on one Docker host
+
+Use Linux containers and a current Docker Compose with `include` and `!reset` support.
+No host Node.js or .NET install is needed. This starts the compiled React UI, API,
+PostgreSQL/pgvector, private SPUR reader, OCR worker and semantic index worker.
+
+1. From the repository root, create a **private** `.env` from [.env.example](.env.example)
+   **only if it does not already exist**. Set a unique `POSTGRES_PASSWORD`, a real
+   `SPUR_API_KEY`, and the authorized OCR and embedding settings from the example.
+   Keep embeddings enabled for the complete stack. On an empty database, configure
+   [first-admin bootstrap or local demo accounts](docs/workspace-access.md).
+2. Run `docker compose -f compose.full.yaml up --build -d --wait`. Open
+   **http://127.0.0.1:8080** (change `WEB_PORT` if needed). Sign in as an administrator,
+   select **Documents**, and send an authorized synthetic invoice to OCR. Follow the
+   receipt to its transcript and index status. A healthy gateway is not a live SPUR test.
+3. Check services with `docker compose -f compose.full.yaml ps`. To stop, run
+   `docker compose -f compose.full.yaml down` **without `-v`**. Use the same
+   project name on subsequent starts. This entry point defaults to a separate
+   `hackthonspurs-full` project: it will not import another demo's data.
+   Keep the named database and originals volumes on persistent storage and back up both.
+4. For unattended recovery, enable Docker at host boot. The six long-running services
+   use `restart: unless-stopped`; manually stopped or removed containers are not resurrected.
+   If the host has exhausted its address pools, select an unused `SPURS_SUBNET` and
+   add `-f compose.subnet.yaml` after the full file in each command.
+
+Only the gateway is published, on loopback. On a remote VM, use an SSH tunnel
+(`ssh -L 8080:127.0.0.1:8080 user@host`) for the private demo. For a shared HTTPS URL,
+terminate TLS at a trusted host proxy, route the whole origin to the loopback gateway,
+and **overwrite** `X-Forwarded-Proto` with `https` so the session cookie is marked Secure.
+Do not publish the API, reader or database. The login rate limit is shared at the gateway;
+this is a single shared workspace, not a public multi-tenant deployment.
+
+Offline smoke test: `python -B tests/integration/test_full_stack.py` (Python Playwright and
+Chromium required; optionally set `SPURS_BROWSER_CHANNEL` and unused `SPURS_TEST_SUBNET`).
+It uses disposable volumes, synthetic input and private stand-ins for OCR and embeddings.
+
 ## Run locally
 
 Use Docker with Linux containers and Docker Compose v2. From the repository root:
