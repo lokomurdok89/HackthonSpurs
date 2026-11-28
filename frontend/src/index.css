@@ -1,26 +1,6 @@
-@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Lato:wght@400;700;900&display=swap");
 
-:root {
-  --bg: #f6f5f1;
-  --surface: #ffffff;
-  --ink: #16191d;
-  --muted: #5a6169;
-  --line: #e2e0d9;
-  --accent: #0e5c59;
-  --accent-soft: #e3efee;
-  --chrome: #16191d;
-  --chrome-2: #2a2f35;
-  --chrome-text: #c9ced3;
-  --badge: #c2410c;
-
-  --topbar-h: 56px;
-  --sidebar-w: 248px;
-
-  --font: "IBM Plex Sans", system-ui, sans-serif;
-  --mono: "IBM Plex Mono", ui-monospace, monospace;
-
-  color-scheme: light;
-}
+/* Color and layout tokens live in styles/theme.css. */
 
 *,
 *::before,
@@ -39,13 +19,30 @@ body {
   background: var(--bg);
   color: var(--ink);
   font-family: var(--font);
-  font-size: 15px;
+  font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
 
 a {
-  color: var(--accent);
+  color: var(--link);
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+}
+
+h1,
+h2 {
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+table {
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background: var(--highlight-bg);
+  color: var(--ink);
 }
 
 button {
@@ -53,7 +50,7 @@ button {
 }
 
 :focus-visible {
-  outline: 2px solid #7fc8c2;
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
 

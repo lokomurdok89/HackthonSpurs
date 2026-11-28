@@ -1,180 +1,143 @@
+import { useState } from "react";
 import type { ProductEvidence as Product } from "../data/types";
-import { EVIDENCE, cad, pct, summarize } from "../data/evidence";
+import { cad, numberSources, summarize } from "../data/evidence";
+import { BomTable, SourcesList } from "./BomTable";
+import { CostLedger } from "./CostLedger";
+import { FindingsPanel } from "./FindingCard";
+import { GapPlanner } from "./GapPlanner";
+import { SupplierView } from "./SupplierView";
 import "./ProductEvidence.css";
 
-import { FindingCard, SourceLink } from "./FindingCard";
+type TabId = "plan" | "suppliers" | "bom" | "sources";
+
+/** Shows a tab, then scrolls to and focuses an element inside it once it has rendered. */
+function focusLater(id: string, block: ScrollLogicalPosition) {
+  window.requestAnimationFrame(() => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.scrollIntoView({ block, behavior: "smooth" });
+    el.focus({ preventScroll: true });
+  });
+}
 
 export function ProductEvidence({ product }: { product: Product }) {
-  const { total, byBucket, mix, largestUnknown } = summarize(product.bom);
+  const { total, byBucket } = summarize(product.bom);
   const highCount = product.findings.filter((f) => f.severity === "high").length;
   const bom = [...product.bom].sort((a, b) => b.costCad - a.costCad);
-  const barLabel = mix.map((m) => `${EVIDENCE[m.type].label} ${pct(m.share)}`).join(", ");
+  const { list: sources, numberOf } = numberSources(bom, product.findings);
+
+  const [tab, setTab] = useState<TabId>("plan");
+  const goToSource = (n: number) => {
+    setTab("sources");
+    focusLater(`src-${n}`, "center");
+  };
+  const goToSuppliers = () => {
+    setTab("suppliers");
+    focusLater("tabs", "start");
+  };
+  const tabs: { id: TabId; label: string; count?: number }[] = [
+    { id: "plan", label: "Substantiation plan" },
+    { id: "suppliers", label: "Supplier declarations" },
+    { id: "bom", label: "Bill of materials", count: product.bom.length },
+    { id: "sources", label: "Sources", count: sources.length },
+  ];
 
   return (
     <div className="pe">
-      <div className="pe__head">
-        <div className="pe__title">
-          <div className="crumbs">
-            <a href="#/products">Products</a>
-            <span aria-hidden="true">/</span>
-            <span>{product.customer}</span>
+      <header className="pe__head">
+        <div className="crumbs">
+          <a href="#/products">Products</a>
+          <span aria-hidden="true">/</span>
+          <span>{product.productId}</span>
+        </div>
+        <div className="pe__titlerow">
+          <div>
+            <p className="pe__kind">Product</p>
+            <h1>
+              <span className="pe__id">{product.productId}</span> {product.description}
+            </h1>
           </div>
-          <h1>
-            {product.productId} · {product.description}
-          </h1>
-          <div className="pe__facts">
-            <span>
-              Customer part <span className="mono strong">{product.customerPart}</span>
-            </span>
-            <span>
-              Drawing <span className="mono strong">{product.drawing}</span>
-            </span>
-            <span>{product.bom.length} BOM lines</span>
-            <span>
-              Standard material cost <strong>{cad(total)}</strong> / unit
-            </span>
+          <div className="pe__actions">
+            <button type="button" className="btn" onClick={goToSuppliers}>
+              Draft supplier requests
+            </button>
+            <button type="button" className="btn btn--primary">
+              Prepare certification draft
+            </button>
           </div>
         </div>
-        <div className="pe__actions">
-          <button type="button" className="btn">
-            Draft supplier requests
-          </button>
-          <button type="button" className="btn btn--primary">
-            Prepare certification draft
-          </button>
-        </div>
+      </header>
+
+      <section className="panel recform" aria-label="Product details">
+        <dl className="recform__grid">
+          <div>
+            <dt>Customer</dt>
+            <dd>{product.customer}</dd>
+          </div>
+          <div>
+            <dt>Customer part</dt>
+            <dd className="mono">{product.customerPart}</dd>
+          </div>
+          <div>
+            <dt>Drawing</dt>
+            <dd className="mono">{product.drawing}</dd>
+          </div>
+          <div>
+            <dt>BOM lines</dt>
+            <dd>{product.bom.length}</dd>
+          </div>
+          <div>
+            <dt>Standard material cost</dt>
+            <dd>{cad(total)} / unit</dd>
+          </div>
+          <div>
+            <dt>Open findings</dt>
+            <dd>
+              {product.findings.length} ({highCount} high)
+            </dd>
+          </div>
+        </dl>
+        <p className="pe__caveat">Not an RVC result or a customs determination.</p>
+      </section>
+
+      <div className="pe__top">
+        <CostLedger bom={product.bom} />
+
+        <FindingsPanel findings={product.findings} numberOf={numberOf} onOpenSource={goToSource} />
       </div>
 
-      <p className="notice">
-        This view shows the <strong>evidence behind each material cost</strong>. It is an estimate for a person to
-        review, not a CUSMA regional value content result or a customs determination.
-      </p>
-
-      <section className="cards" aria-label="Evidence summary">
-        <div className="card">
-          <div className="card__label">Origin evidenced in CUSMA region</div>
-          <div className="card__value">
-            {cad(byBucket.evidenced_cusma)} <span>{pct(byBucket.evidenced_cusma / total)}</span>
-          </div>
-          <div className="card__sub">Mill test reports and supplier certifications for CA, US or MX</div>
-        </div>
-        <div className="card">
-          <div className="card__label">Stated origin outside CUSMA</div>
-          <div className="card__value">
-            {cad(byBucket.stated_outside)} <span>{pct(byBucket.stated_outside / total)}</span>
-          </div>
-          <div className="card__sub">Country named on an invoice or certificate</div>
-        </div>
-        <div className="card">
-          <div className="card__label">Unknown or not yet proven</div>
-          <div className="card__value card__value--warn">
-            {cad(byBucket.unproven)} <span>{pct(byBucket.unproven / total)}</span>
-          </div>
-          <div className="card__sub">
-            {largestUnknown
-              ? `Largest: ${largestUnknown.componentId}, ${cad(largestUnknown.costCad)}`
-              : "Nothing unproven"}
-          </div>
-        </div>
-        <div className="card">
-          <div className="card__label">Open findings</div>
-          <div className="card__value">
-            {product.findings.length} <span>need a person</span>
-          </div>
-          <div className="card__sub">{highCount} high priority</div>
-        </div>
-      </section>
-
-      <section className="panel" aria-labelledby="mix-title">
-        <div className="panel__head">
-          <h2 id="mix-title">Standard material cost per finished unit, by evidence type</h2>
-          <span className="muted small">{cad(total)} total</span>
-        </div>
-        <div className="mixbar" role="img" aria-label={`Stacked bar: ${barLabel}`}>
-          {mix.map((m) => (
-            <div key={m.type} style={{ flexGrow: m.amount, background: EVIDENCE[m.type].color }} />
+      <div className="panel panel--flush rectabs">
+        <div className="tabs" role="tablist" aria-label="Product records" id="tabs" tabIndex={-1}>
+          {tabs.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              id={`tab-${t.id}`}
+              aria-selected={tab === t.id}
+              aria-controls={`panel-${t.id}`}
+              className="tab"
+              onClick={() => setTab(t.id)}
+            >
+              {t.label}
+              {t.count !== undefined ? <span className="tab__count">{t.count}</span> : null}
+            </button>
           ))}
         </div>
-        <ul className="legend">
-          {mix.map((m) => (
-            <li key={m.type}>
-              <span className="swatch" style={{ background: EVIDENCE[m.type].color }} aria-hidden="true" />
-              <span>{EVIDENCE[m.type].label}</span>
-              <span className="mono muted">
-                {cad(m.amount)} · {pct(m.share)}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <div className="pe__split">
-        <section className="panel panel--flush pe__bom" aria-labelledby="bom-title">
-          <div className="panel__head panel__head--pad">
-            <h2 id="bom-title">Bill of materials and origin evidence</h2>
-            <span className="muted small">Source links open the example review queue</span>
-          </div>
-          <div className="table-scroll">
-            <table className="bom">
-              <thead>
-                <tr>
-                  <th scope="col">Component</th>
-                  <th scope="col">Supplier</th>
-                  <th scope="col">BOM says</th>
-                  <th scope="col">Evidence</th>
-                  <th scope="col" className="num">
-                    CAD / unit
-                  </th>
-                  <th scope="col">Source</th>
-                </tr>
-              </thead>
-              <tbody>
-                {bom.map((l) => {
-                  const meta = EVIDENCE[l.evidence];
-                  return (
-                    <tr key={l.componentId}>
-                      <td>
-                        <div className="strong-500">{l.description}</div>
-                        <div className="mono muted small">
-                          {l.componentId} · HS {l.suggestedHs} <span className="suggested">suggested</span>
-                        </div>
-                      </td>
-                      <td>{l.supplier}</td>
-                      <td className="muted">{l.originPerBom}</td>
-                      <td>
-                        <span className="chip" style={{ background: meta.chipBg, color: meta.chipFg }}>
-                          {meta.label}
-                          {l.evidencedCountry ? `: ${l.evidencedCountry}` : ""}
-                        </span>
-                        <div className="note">{l.note}</div>
-                      </td>
-                      <td className="num mono">{l.costCad.toFixed(2)}</td>
-                      <td>
-                        <SourceLink source={l.source} />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-              <tfoot>
-                <tr>
-                  <th scope="row" colSpan={4}>
-                    Total standard material cost
-                  </th>
-                  <td className="num mono strong">{total.toFixed(2)}</td>
-                  <td />
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        </section>
-
-        <aside className="pe__findings" aria-labelledby="find-title">
-          <h2 id="find-title">Findings for a person</h2>
-          {product.findings.map((f) => (
-            <FindingCard key={f.code} f={f} />
-          ))}
-        </aside>
+        <div className="tabpanel" role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
+          {tab === "plan" ? (
+            <GapPlanner bom={product.bom} total={total} proven={byBucket.evidenced_cusma} />
+          ) : null}
+          {tab === "suppliers" ? (
+            <SupplierView bom={product.bom} productId={product.productId} />
+          ) : null}
+          {tab === "bom" ? (
+            <BomTable bom={bom} total={total} numberOf={numberOf} onOpenSource={goToSource} />
+          ) : null}
+          {tab === "sources" ? (
+            <SourcesList sources={sources} />
+          ) : null}
+        </div>
       </div>
     </div>
   );

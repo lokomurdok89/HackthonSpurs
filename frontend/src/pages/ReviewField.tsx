@@ -84,12 +84,12 @@ export function FieldRow({
       {field.quote ? (
         <div className="field__quote">
           <span className="mono">“{field.quote}”</span>
-          {field.translation ? <span className="muted"> · EN: {field.translation}</span> : null}
+          {field.translation ? <span className="field__en muted">English: {field.translation}</span> : null}
         </div>
       ) : null}
 
       <div className="field__bottom">
-        <span className="mono muted small">{field.where}</span>
+        <span className="muted small">{field.where}</span>
         {decision.status === "pending" ? (
           <div className="field__actions">
             <button type="button" className="btn btn--sm btn--ok" onClick={() => onDecide({ status: "approved" })}>
@@ -104,7 +104,7 @@ export function FieldRow({
           </div>
         ) : (
           <div className="field__actions">
-            <span className={`status status--${decision.status}`}>{STATUS_LABEL[decision.status]}</span>
+            <span className={`stamp status status--${decision.status}`}>{STATUS_LABEL[decision.status]}</span>
             <button type="button" className="btn btn--sm btn--ghost" onClick={() => onDecide({ status: "pending" })}>
               Undo
             </button>
