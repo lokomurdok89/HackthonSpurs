@@ -1,6 +1,6 @@
 # PostgreSQL + pgvector for local development
 
-The `postgres` service builds [the extension image](../backend/postgres-vector/Dockerfile) from the same PostgreSQL 18.4 / Alpine 3.23 digest used by the existing demo. pgvector 0.8.2 is compiled against that image's PostgreSQL headers from a checksummed upstream source archive; only the compiled library, SQL files and license enter the final image. Keeping the same PG build avoids switching the existing cluster between Alpine and Debian. No database port is published.
+The `postgres` service builds [the extension image](../backend/Infrastructure/PostgresVector/Dockerfile) from the same PostgreSQL 18.4 / Alpine 3.23 digest used by the existing demo. pgvector 0.8.2 is compiled against that image's PostgreSQL headers from a checksummed upstream source archive; only the compiled library, SQL files and license enter the final image. Keeping the same PG build avoids switching the existing cluster between Alpine and Debian. No database port is published.
 
 From the repository root, with the existing private Compose environment:
 

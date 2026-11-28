@@ -1,6 +1,6 @@
 # Backend resources and error dictionary
 
-Edit [backend-resources.json](../backend/HackthonSpurs.Resources/backend-resources.json). It is the **single authored source** for application errors, safe English messages, configuration names, non-secret defaults, bounds, durations, service locations, wire constants and renderer settings. The five .NET projects consume a small shared assembly with no third-party packages. No resource file needs a runtime working directory or network lookup.
+Edit [backend-resources.json](../backend/HackthonSpurs.Resources/backend-resources.json). It is the **single authored source** for application errors, safe English messages, configuration names, non-secret defaults, bounds, durations, service locations, wire constants and renderer settings. The backend hosts and document components consume a small shared assembly with no third-party packages. No resource file needs a runtime working directory or network lookup.
 
 ## Where a value belongs
 

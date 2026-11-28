@@ -53,7 +53,7 @@ services:
   spur-reader:
     build:
       context: .
-      dockerfile: backend/reader-spur/Dockerfile
+      dockerfile: backend/HackthonSpurs.Reader.Spur/Dockerfile
     environment:
       SPUR_OCR_IMAGE_TARGET_BYTES: "${SPUR_OCR_IMAGE_TARGET_BYTES:-79999}"
       SPUR_OCR_MAX_JSON_BYTES: "${SPUR_OCR_MAX_JSON_BYTES:-128000}"

@@ -1,7 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 
-namespace HackthonSpurs.SpurReader.Tests;
+namespace HackthonSpurs.Reader.Spur.Tests;
 
 internal sealed class FakeGateway : HttpMessageHandler
 {

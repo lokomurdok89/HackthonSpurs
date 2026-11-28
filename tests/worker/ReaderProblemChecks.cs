@@ -2,7 +2,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using HackthonSpurs.Resources;
-using HackthonSpurs.Worker;
+using HackthonSpurs.Worker.Ocr.Contracts;
 
 namespace HackthonSpurs.Worker.Tests;
 

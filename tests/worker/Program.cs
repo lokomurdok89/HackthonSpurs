@@ -1,5 +1,6 @@
 using System.Text;
-using HackthonSpurs.Worker;
+using HackthonSpurs.Worker.Ocr.Contracts;
+using HackthonSpurs.Worker.Ocr.Rendering;
 using HackthonSpurs.Worker.Tests;
 
 var id = Guid.NewGuid();

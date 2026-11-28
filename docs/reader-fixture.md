@@ -1,6 +1,6 @@
 # Synthetic Worker and private reader contract
 
-**Purpose:** prove the upload → claim → HTTP reader → PostgreSQL → browser path. This profile exercises real infrastructure, but it does not read arbitrary documents or invoke OCR. The only eligible input is the [unchanged synthetic CSV](../backend/reader-fixture/worker-demo.csv). See the [local runbook](../README.md#run-the-synthetic-worker-demo).
+**Purpose:** prove the upload → claim → HTTP reader → PostgreSQL → browser path. This profile exercises real infrastructure, but it does not read arbitrary documents or invoke OCR. The only eligible input is the [unchanged synthetic CSV](../backend/HackthonSpurs.Reader.Fixture/worker-demo.csv). See the [local runbook](../README.md#run-the-synthetic-worker-demo).
 
 ## Internal HTTP v1
 

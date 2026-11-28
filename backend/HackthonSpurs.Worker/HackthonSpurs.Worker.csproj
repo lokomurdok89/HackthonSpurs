@@ -7,7 +7,7 @@
     <InternalsVisibleTo Include="WorkerContract.Tests" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="../HackthonSpurs.Documents/HackthonSpurs.Documents.csproj" />
-    <EmbeddedResource Include="../reader-fixture/worker-demo.csv" LogicalName="worker-demo.csv" />
+    <EmbeddedResource Include="../HackthonSpurs.Reader.Fixture/worker-demo.csv" LogicalName="worker-demo.csv" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../HackthonSpurs.Resources/HackthonSpurs.Resources.csproj" />

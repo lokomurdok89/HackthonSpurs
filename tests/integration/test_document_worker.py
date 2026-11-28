@@ -7,7 +7,7 @@ import uuid
 import test_document_api as api
 from test_document_api import compose, sql
 
-FIXTURE = (api.ROOT / "backend/reader-fixture/worker-demo.csv").read_bytes()
+FIXTURE = (api.ROOT / "backend/HackthonSpurs.Reader.Fixture/worker-demo.csv").read_bytes()
 
 
 def upload(data=FIXTURE, key=None):

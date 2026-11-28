@@ -3,11 +3,11 @@
   <Project Path="HackthonSpurs.Api/HackthonSpurs.Api.csproj" />
   <Project Path="HackthonSpurs.Documents/HackthonSpurs.Documents.csproj" />
   <Project Path="HackthonSpurs.Worker/HackthonSpurs.Worker.csproj" />
-  <Project Path="ocr-bilevel/OcrBilevel.csproj" />
-  <Project Path="reader-fixture/FixtureReader.csproj" />
+  <Project Path="HackthonSpurs.Ocr.Bilevel/HackthonSpurs.Ocr.Bilevel.csproj" />
+  <Project Path="HackthonSpurs.Reader.Fixture/HackthonSpurs.Reader.Fixture.csproj" />
   <Folder Name="/tests/">
     <Project Path="../tests/spur-reader/SpurReader.Tests.csproj" />
     <Project Path="../tests/worker/WorkerContract.Tests.csproj" />
   </Folder>
-  <Project Path="reader-spur/SpurReader.csproj" />
+  <Project Path="HackthonSpurs.Reader.Spur/HackthonSpurs.Reader.Spur.csproj" />
 </Solution>

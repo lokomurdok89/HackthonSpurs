@@ -8,7 +8,7 @@ from PIL import Image, ImageDraw
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SPEC = importlib.util.spec_from_file_location("split_band", ROOT / "backend/HackthonSpurs.Worker/split_band.py")
+SPEC = importlib.util.spec_from_file_location("split_band", ROOT / "backend/HackthonSpurs.Worker/Ocr/Rendering/split_band.py")
 BANDS = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(BANDS)
 

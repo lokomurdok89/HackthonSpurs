@@ -4,7 +4,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using HackthonSpurs.Documents.Embeddings;
-using HackthonSpurs.Worker;
+using HackthonSpurs.Worker.Indexing;
 
 namespace HackthonSpurs.Worker.Tests;
 

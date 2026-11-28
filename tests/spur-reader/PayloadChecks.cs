@@ -1,7 +1,9 @@
 using System.Globalization;
+using HackthonSpurs.Reader.Spur.Contracts;
+using HackthonSpurs.Reader.Spur.Provider;
 using HackthonSpurs.Resources;
 
-namespace HackthonSpurs.SpurReader.Tests;
+namespace HackthonSpurs.Reader.Spur.Tests;
 
 internal static class PayloadChecks
 {

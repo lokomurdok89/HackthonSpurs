@@ -1,6 +1,6 @@
 services:
   postgres:
-    build: ./backend/postgres-vector
+    build: ./backend/Infrastructure/PostgresVector
     image: hackthonspurs/postgres-vector:18.4-alpine3.23-v0.8.2
     pull_policy: build
     environment:
@@ -56,7 +56,7 @@ services:
     profiles: [synthetic]
     build:
       context: .
-      dockerfile: backend/reader-fixture/Dockerfile
+      dockerfile: backend/HackthonSpurs.Reader.Fixture/Dockerfile
     read_only: true
     tmpfs:
       - /tmp

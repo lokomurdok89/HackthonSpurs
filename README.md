@@ -30,7 +30,7 @@ npm --prefix frontend ci
 npm --prefix frontend run dev:api
 ```
 
-In **Documents**, check the **Local API** label and upload the [exact demo CSV](backend/reader-fixture/worker-demo.csv) from disk. Do not recreate or resave it: its bytes are allowlisted by SHA-256. Follow the receipt until **Completed · Attempt 1** (the short Processing state may be missed). Expect **synthetic-fixture/1**, **Row 2, column 1**, and **DEMO-ONLY-014**. Reload the receipt to read the same persisted result. A modified copy or any other file stays queued. No result seeding, document comparison or OCR is involved.
+In **Documents**, check the **Local API** label and upload the [exact demo CSV](backend/HackthonSpurs.Reader.Fixture/worker-demo.csv) from disk. Do not recreate or resave it: its bytes are allowlisted by SHA-256. Follow the receipt until **Completed · Attempt 1** (the short Processing state may be missed). Expect **synthetic-fixture/1**, **Row 2, column 1**, and **DEMO-ONLY-014**. Reload the receipt to read the same persisted result. A modified copy or any other file stays queued. No result seeding, document comparison or OCR is involved.
 
 Stop this profile with `docker compose --profile synthetic down` (no `-v`); the demo job and result survive. The profile also picks up previously queued copies of the exact fixture. No provider endpoint, key or challenge data is needed. See the [internal contract and recovery notes](docs/reader-fixture.md).
 
@@ -44,7 +44,7 @@ $credential = Get-Credential -Message 'Local Origin Vault administrator'
 $headers = @{ 'X-Workspace-Request' = '1' }
 $null = Invoke-RestMethod "$api/api/auth/login" -Method Post -ContentType application/json -Headers $headers -SessionVariable workspace -Body (@{ username = $credential.UserName; password = $credential.GetNetworkCredential().Password } | ConvertTo-Json -Compress)
 $headers['Idempotency-Key'] = [guid]::NewGuid().ToString()
-$receipt = Invoke-RestMethod "$api/api/documents" -Method Post -Headers $headers -WebSession $workspace -Form @{ file = Get-Item './backend/reader-fixture/worker-demo.csv' }
+$receipt = Invoke-RestMethod "$api/api/documents" -Method Post -Headers $headers -WebSession $workspace -Form @{ file = Get-Item './backend/HackthonSpurs.Reader.Fixture/worker-demo.csv' }
 Invoke-RestMethod "$api/api/documents/$($receipt.id)" -WebSession $workspace
 Invoke-RestMethod "$api/api/auth/logout" -Method Post -Headers $headers -WebSession $workspace
 ```

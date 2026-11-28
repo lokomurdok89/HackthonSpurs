@@ -1,8 +1,9 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
-using HackthonSpurs.SpurReader;
-using HackthonSpurs.SpurReader.Tests;
+using HackthonSpurs.Reader.Spur.Endpoints;
+using HackthonSpurs.Reader.Spur.Provider;
+using HackthonSpurs.Reader.Spur.Tests;
 using Microsoft.AspNetCore.Http;
 
 // Real endpoint + adapter, fake HTTP transport. No socket, real key or document.

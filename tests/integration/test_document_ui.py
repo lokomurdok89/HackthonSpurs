@@ -70,7 +70,7 @@ class DocumentBrowser(WorkspaceBrowser):
         page = self.workspace_page()
         page.goto(self.url)
         page.get_by_label("Select a document").set_input_files(
-            str(ROOT / "backend/reader-fixture/worker-demo.csv"))
+            str(ROOT / "backend/HackthonSpurs.Reader.Fixture/worker-demo.csv"))
         page.get_by_role("button", name="Upload document").click()
         expect(page.get_by_role("status")).to_have_text("Completed · Attempt 1", timeout=20000)
         expect(page.get_by_role("heading", name="Reading · synthetic-fixture/1")).to_be_visible()

@@ -2,7 +2,7 @@
 
 **Scope: local, single-workspace demonstration with administrator and reader accounts.** A user uploads a document, leaves the UI, and comes back to see what could be read and **where it appears in the original**. Finishing a reading job does not establish that a claim is true or that a product complies with a regulation.
 
-**Delivery status:** the .NET 10 API, PostgreSQL persistence, private original-file storage and the eight authenticated [document/search operations](api/openapi.json) are implemented. The React Documents screen uses these operations through a loopback Vite proxy. Products and Review queue still display separate demo data. The opt-in synthetic Worker profile processes one exact fixture through an internal test reader; ordinary uploads remain queued. A separate [SPUR reader](spur-ocr.md) can transcribe a caller-supplied page image using the hackathon vision model. The optional document Worker converts submitted PDF/Office/text documents to page images or passes through PNG/JPEG; the UI shows the persisted transcription beside the upload form. Successful explicit OCR also schedules a separate durable semantic index job; the optional index worker writes pgvector chunks with page locators. No live OCR, live embeddings verification or data-transfer approval is implied. See the [local API runbook](../README.md) and [UI handoff](api/README.md).
+**Delivery status:** the .NET 10 API, PostgreSQL persistence, private original-file storage and the eight authenticated [document/search operations](api/openapi.json) are implemented. The React Documents screen uses these operations through a loopback Vite proxy. Products and Review queue still display separate demo data. The opt-in synthetic Worker profile processes one exact fixture through an internal test reader; ordinary uploads remain queued. A separate [SPUR reader](spur-ocr.md) can transcribe a caller-supplied page image using the hackathon vision model. The optional document Worker prepares PNG/JPEG inputs or renders submitted PDF/Office/text into page images. Pages that do not fit the reader budget may be split into non-overlapping bands; the UI displays the persisted transcription beside the upload form. Successful explicit OCR also schedules a separate durable semantic index job; the optional index worker writes pgvector chunks with page locators. No live OCR, live embeddings verification or data-transfer approval is implied. See the [local API runbook](../README.md) and [UI handoff](api/README.md).
 
 The [backend resource catalog and error dictionary](backend-resources.md) is shared by all hosts. Safe OCR error codes survive the Worker boundary; historical generic failures are not rewritten.
 
@@ -19,7 +19,7 @@ flowchart LR
     F -->|"Read by opaque key"| W
     W -->|"Bounded stream over internal HTTP"| O["Fixture reader · synthetic lane"]
     O -->|"Located fragments or a classified error"| W
-    W -->|"OCR submissions: one image per printed page"| R["Private SPUR page reader"]
+    W -->|"OCR submissions: whole page or disjoint bands"| R["Private SPUR page reader"]
     R -->|"Authorized page image · server-side HTTPS"| S["SPUR vision gateway"]
     I["Worker · semantic index lane"] -->|"Claim OCR index and publish vectors"| P
     I -->|"Stored OCR excerpts only"| E["SPUR embeddings gateway"]
@@ -64,17 +64,24 @@ PostgreSQL enforces uniqueness across API instances and enables short claim tran
 
 ## 4. Projects and dependencies
 
-| Component | Responsibility |
-|---|---|
-| `backend/HackthonSpurs.Api/` | ASP.NET Core 10 host, request validation, multipart streaming, config/DI, safe HTTP errors and queries. Owns EF migrations at startup. |
-| `backend/HackthonSpurs.Documents/` | Shared .NET library for ingestion, private original-file storage, file type admission, EF Core/Npgsql mapping and migrations. No dependency on the UI or OCR. |
-| `tests/contract/`, `tests/integration/` | Offline OpenAPI examples and real HTTP/PostgreSQL acceptance tests, respectively. |
-| `frontend/` | React, TypeScript, Vite and fetch. Document upload, bookmarkable status and reading results; separate sample product/review views. Same-origin proxy; no global state manager or WebSockets required. |
-| `backend/HackthonSpurs.Worker/` | .NET BackgroundService, database claims, bounded retries and an HTTP reader client. References Documents, not the API host. |
-| `backend/reader-fixture/` | Private .NET HTTP test double for a single CSV. No OCR engine, provider SDK, database credentials, originals mount or public port. No external calls. |
-| `backend/reader-spur/` | Optional private page-image reader. Only this process uses SPUR credentials for vision; its HTTP adapter translates bounded vision chat completions into page-level text. |
+The backend solution is [HackthonSpurs.slnx](../backend/HackthonSpurs.slnx). Project and folder names match. Folders group code by responsibility **inside** a project; a separate project is warranted here by a deployment boundary, a shared dependency or native process isolation.
 
-The backend solution is `backend/HackthonSpurs.slnx`. EF Core with its PostgreSQL provider owns storage and migrations; BCL and ASP.NET Core handle streaming, hashing, ZIP/XML inspection, configuration and HTTP. Pin reader binaries, languages and licenses when that service is added.
+| Project or build asset | Where to put a change | Why this boundary exists |
+|---|---|---|
+| [HackthonSpurs.Api](../backend/HackthonSpurs.Api) | HTTP routes in `Endpoints/`, account request/response shapes in `Contracts/`, workspace identity behavior in `Auth/`, HTTP failures in `Http/`, startup wiring in `Composition/`. | Owns authentication, HTTP and migration startup. Document commands and queries are injected; the API does not run a document reader. |
+| [HackthonSpurs.Documents](../backend/HackthonSpurs.Documents) | Mutations in `Commands/`, read projections in `Queries/`, persisted entities in `Models/`, EF configuration and migrations in `Persistence/`. Original storage and embedding adapters belong in `Infrastructure/`. | API and Worker both use document behavior. Moving this library into either host would couple the other to an executable. Persisted entities are not HTTP DTOs. |
+| [HackthonSpurs.Worker](../backend/HackthonSpurs.Worker) | Reading jobs and leases in `Processing/`, reader contracts and image preparation in `Ocr/`, vector jobs in `Indexing/`. `Composition/` selects and wires the host's active lane. | Runs separately from the API. A reading can create an index job; indexing uses only the persisted transcript, never the original. |
+| [HackthonSpurs.Reader.Spur](../backend/HackthonSpurs.Reader.Spur) | Private page endpoint in `Endpoints/`, the transcription boundary in `Contracts/` and SPUR settings and HTTP adapter in `Provider/`. | The vision credential belongs to this HTTP service, not the document Worker or browser. No database or original-volume access. |
+| [HackthonSpurs.Reader.Fixture](../backend/HackthonSpurs.Reader.Fixture) | The private synthetic reader and its exact CSV fixture. | Remains an executable for end-to-end tests of the HTTP boundary; no external provider or credential is needed. |
+| [HackthonSpurs.Ocr.Bilevel](../backend/HackthonSpurs.Ocr.Bilevel) | Worker-side monochrome image encoding with Magick.NET. | This is a **child process**, not another network service. Its native package is shipped only in the document-OCR image; it can be terminated independently of the Worker. |
+| [HackthonSpurs.Resources](../backend/HackthonSpurs.Resources) | Authored catalog, generated bindings, bounded OCR payload helpers. | Readers, Worker and API share stable constants and limits without importing EF, provider implementations or another host. |
+| [Infrastructure/PostgresVector](../backend/Infrastructure/PostgresVector) | PostgreSQL image build and extension initialization SQL. | A Docker build asset, not a .NET project. Document schema changes still belong to EF migrations. |
+
+The fixture reader and the image helper each have a single implementation beside their entry point. They do not need the API’s folder hierarchy. Conversely, entities (stored state) and request/response shapes (transport contracts) do not belong in one global `Models` library.
+
+**Dependency direction:** API and Worker may reference Documents and Resources; Documents and each reader/helper may reference Resources. No backend host references another host. Test harnesses live under `tests/`, outside the production dependency graph. Run `python -B tests/quality/test_backend_layout.py` after changing projects or references.
+
+**Compatibility rule:** the physical folders for entities are not their EF identities. Their existing CLR namespace, Documents assembly, migration IDs and snapshot are deliberately preserved. This reorganization does not require a database migration or a new OpenAPI version. Compose service names, environment variables and HTTP routes are runtime contracts; do not rename them to match a source folder.
 
 The [semantic search runbook](semantic-search.md) describes the optional index worker lane, the shared server-only vector profile, and provider isolation. The pgvector integration reuses the Npgsql connection and original PR #7 vector schema without text extraction or a parallel ingestion API.
 
@@ -89,7 +96,9 @@ The API is an HTTP adapter, not the owner of the use cases. It parses the reques
 | Query: read evidence | `GET /api/documents/{id}/result` | [`GetDocumentResultHandler`](../backend/HackthonSpurs.Documents/Queries/GetDocumentResultHandler.cs) projects state and persisted result JSON. It never calls a reader or schedules work. |
 | Query: check index progress | `GET /api/documents/{id}/index-status` | `GetDocumentIndexStatusHandler` independently projects the durable index state. |
 | Query: search OCR | `POST /api/search`, `GET /api/search/stats` | `DocumentSearchService` ranks current-profile excerpts; only an explicit query with compatible indexed data calls the embedding provider. Neither route writes document state. |
-| Internal writes: claim and finish | Worker loop, not HTTP | `Worker/JobQueue` changes reader lease and state; a valid SPUR publication creates one index job atomically. `Worker/IndexQueue` owns the independent lease and publishes chunks plus terminal status in a short transaction. A claim is a write even though it returns work. |
+| Query: inspect excerpts | `GET /api/documents/{id}/chunks` | Reads published compatible chunks in source order. No provider call or new job. |
+| Command: reindex | `POST /api/documents/{id}/reindex` | An administrator can requeue the stored transcript for embeddings without triggering OCR again. |
+| Internal writes: claim and finish | Worker loop, not HTTP | `JobQueue` changes reader lease and state; a valid SPUR publication creates one index job atomically. `IndexQueue` owns the independent lease and publishes chunks plus terminal status in a short transaction. A claim is a write even though it returns work. |
 
 Read models use no-tracking projections on the same PostgreSQL database as the commands. The OCR job table remains separate from the indexing job and pgvector chunks, without introducing a second database, event store, message bus or mediator package. Add new document mutations under `Commands/` and new read projections under `Queries/` in the existing `HackthonSpurs.Documents` project.
 

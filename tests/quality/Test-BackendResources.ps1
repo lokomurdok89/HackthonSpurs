@@ -12,17 +12,14 @@ foreach ($file in $files) {
     $path = (Resolve-Path -LiteralPath $file).Path
     $root = [Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree]::ParseText([IO.File]::ReadAllText($path)).GetRoot()
     foreach ($node in $root.DescendantNodes()) {
-        # EF table/check definitions and the transaction lock are schema, not application resources.
-        if ($file -eq 'backend/HackthonSpurs.Documents/Persistence/WorkspaceMappings.cs') {
-            if ($node -is [Microsoft.CodeAnalysis.CSharp.Syntax.InterpolatedStringTextSyntax] -or
-                $node -is [Microsoft.CodeAnalysis.CSharp.Syntax.LiteralExpressionSyntax]) {
-                if ($node.Ancestors() | Where-Object {
-                    $_ -is [Microsoft.CodeAnalysis.CSharp.Syntax.InvocationExpressionSyntax] -and
-                    $_.Expression.ToString() -match '\.(ToTable|HasCheckConstraint)$'
-                }) { continue }
-                if ($node.Token.ValueText -ceq 'LOCK TABLE workspace_users IN SHARE ROW EXCLUSIVE MODE') { continue }
-            }
-        }
+        # The workspace role constraint is schema, including its interpolated punctuation.
+        if ($file -eq 'backend/HackthonSpurs.Documents/Persistence/Mappings/WorkspaceMappings.cs' -and
+            ($node -is [Microsoft.CodeAnalysis.CSharp.Syntax.InterpolatedStringTextSyntax] -or
+                $node -is [Microsoft.CodeAnalysis.CSharp.Syntax.LiteralExpressionSyntax]) -and
+            ($node.Ancestors() | Where-Object {
+                $_ -is [Microsoft.CodeAnalysis.CSharp.Syntax.InvocationExpressionSyntax] -and
+                $_.Expression.ToString() -match '\.(ToTable|HasCheckConstraint)$'
+            })) { continue }
         if ($node -is [Microsoft.CodeAnalysis.CSharp.Syntax.InterpolatedStringTextSyntax]) {
             # Interpolated messages are resources too; only URI/framing punctuation is structural.
             if ($node.TextToken.ValueText -cin @('', '/', 'data:', ';base64,')) { continue }
@@ -42,7 +39,9 @@ foreach ($file in $files) {
             # SQL, constraints and database identifiers are schema, not application messages or settings.
             if ($v -match '^\s*(WITH|UPDATE|DELETE|INSERT|SELECT)\s') {
                 if (!($codes | Where-Object { $v.Contains("'$_'") })) { continue }
-            } elseif ($file -match '/Persistence/(DocumentIndexJob|DocumentsDb)\.cs$' -and
+            } elseif ($file -eq 'backend/HackthonSpurs.Documents/Persistence/WorkspaceWriteLock.cs' -and
+                $v -ceq 'LOCK TABLE workspace_users IN SHARE ROW EXCLUSIVE MODE') { continue }
+            elseif ($file -match '/Persistence/Mappings/(IndexMappings|DocumentMappings)\.cs$' -and
                 ($node.Ancestors() | Where-Object {
                     $_ -is [Microsoft.CodeAnalysis.CSharp.Syntax.InvocationExpressionSyntax] -and
                     $_.Expression.ToString() -match '\.(HasCheckConstraint|HasColumnType|HasDatabaseName|HasPostgresExtension|ToTable)$'
