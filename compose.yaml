@@ -23,6 +23,9 @@ services:
       PGPASSWORD: ${POSTGRES_PASSWORD:?Set a local database password}
       Storage__Root: /data/originals
       Storage__MaxFileBytes: "${UPLOAD_MAX_BYTES:-}"
+      Auth__DemoSeedEnabled: "${Auth__DemoSeedEnabled:-false}"
+      Auth__DemoAdminPassword: "${Auth__DemoAdminPassword:-}"
+      Auth__DemoReaderPassword: "${Auth__DemoReaderPassword:-}"
       Auth__BootstrapUsername: "${Auth__BootstrapUsername:-}"
       Auth__BootstrapPassword: "${Auth__BootstrapPassword:-}"
     ports:

@@ -17,7 +17,8 @@ SPEC = json.loads((ROOT / "docs/api/openapi.json").read_text(encoding="utf-8"))
 RESULT_EXAMPLES = SPEC["paths"]["/api/documents/{id}/result"]["get"]["responses"]["200"]["content"]["application/json"]["examples"]
 LIMIT = 32768  # Small test-only limit; the API default is 20 MiB.
 PROJECT = "spurs-test-" + uuid.uuid4().hex[:12]
-ENV = dict(os.environ, Auth__BootstrapUsername=ADMIN, Auth__BootstrapPassword=PASSWORD,
+ENV_FILE = "tests/integration/compose.test.env"
+ENV = dict(os.environ, Auth__DemoSeedEnabled="false", Auth__DemoAdminPassword="", Auth__DemoReaderPassword="", Auth__BootstrapUsername=ADMIN, Auth__BootstrapPassword=PASSWORD,
            POSTGRES_PASSWORD=secrets.token_hex(24), API_PORT="0", UPLOAD_MAX_BYTES=str(LIMIT),
            COMPOSE_FILE=os.pathsep.join([os.environ.get("COMPOSE_FILE", "compose.yaml"),
                                          "tests/integration/compose.test-base.yaml"]))
@@ -27,7 +28,7 @@ PDF = b"%PDF-1.4\n% synthetic signature fixture; no reader is invoked\n%%EOF\n"
 
 def compose(*args, capture=False, stdin=None):
     """Run Compose args in the disposable project; capture requests stdout and stdin supplies optional input."""
-    return subprocess.run(["docker", "compose", "--env-file", "tests/integration/compose.test.env", "-p", PROJECT, *args], cwd=ROOT, env=ENV,
+    return subprocess.run(["docker", "compose", "--env-file", ENV_FILE, "-p", PROJECT, *args], cwd=ROOT, env=ENV,
                           input=stdin, text=True, check=True, stdout=subprocess.PIPE if capture else None).stdout
 
 

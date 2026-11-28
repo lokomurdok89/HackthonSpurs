@@ -87,6 +87,9 @@ public static class SettingNames
     public const string DocumentConnection = "Documents";
     public const string StorageRoot = "Storage:Root";
     public const string MaxFileBytes = "Storage:MaxFileBytes";
+    public const string DemoSeedEnabled = "Auth:DemoSeedEnabled";
+    public const string DemoAdminPassword = "Auth:DemoAdminPassword";
+    public const string DemoReaderPassword = "Auth:DemoReaderPassword";
     public const string BootstrapUsername = "Auth:BootstrapUsername";
     public const string BootstrapPassword = "Auth:BootstrapPassword";
     public const string OcrEnabled = "Spur:Enabled";
@@ -109,6 +112,8 @@ public static class SettingNames
 
 public static class ServiceDefaults
 {
+    public const string DemoAdminUsername = "demo.admin";
+    public const string DemoReaderUsername = "demo.lector";
     public const string EmbedModel = "spur-embed";
     public const string EmbedVersion = "1";
     public const int EmbedDimensions = 768;
@@ -195,6 +200,8 @@ public static class ResourceText
 {
     public const string ConnectionRequired = "ConnectionStrings:Documents is required.";
     public const string StorageInvalid = "Provide an absolute Storage:Root and a valid Storage:MaxFileBytes (1 byte to 1 GiB).";
+    public const string DemoSeedPasswordInvalid = "Demo provisioning requires valid, distinct initial passwords for missing accounts. Check the private demo settings.";
+    public const string DemoSeedRoleConflict = "A reserved demo username has a different role. No accounts were changed. Resolve the conflict or disable demo provisioning.";
     public const string InvalidBootstrap = "Provide both Auth:BootstrapUsername and Auth:BootstrapPassword with valid account values.";
     public const string ApiOutage = "Document service unavailable. Trace: {TraceId}";
     public const string MultipartIncomplete = "Incomplete multipart framing.";

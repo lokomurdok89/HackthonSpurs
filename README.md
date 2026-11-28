@@ -56,6 +56,7 @@ Follow the relative `Location` with GET. The status starts at `Queued`, attempt 
 | Setting | Owner and meaning |
 |---|---|
 | `POSTGRES_PASSWORD` | Required Compose secret. Configures the local database and supplies the API password through `PGPASSWORD`; not part of any HTTP payload. |
+| `Auth__DemoSeedEnabled`, `Auth__DemoAdminPassword`, `Auth__DemoReaderPassword` | Optional [two-account demo setup](docs/workspace-access.md#seed-the-local-demo). Initial credentials are used only for missing accounts. |
 | `Auth__BootstrapUsername`, `Auth__BootstrapPassword` | Server-only first administrator provisioning; see [workspace access](docs/workspace-access.md). No default credential or open registration. |
 | `API_PORT` | Local host port, default 5080. |
 | `ConnectionStrings__Documents` | Required for the .NET host. Compose supplies the internal host, database and user. For native development, set a private local value via environment/user tooling. |

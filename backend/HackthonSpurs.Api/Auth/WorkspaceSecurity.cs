@@ -62,13 +62,20 @@ internal static class WorkspaceSecurity
         return ApiProblems.Error(Errors.WorkspaceRequestRequired).ExecuteAsync(context);
     }
 
-    /// <summary>Provision the initial active admin only on an empty migrated workspace.</summary>
+    /// <summary>Provision missing demo accounts when enabled; otherwise bootstrap the first admin on an empty workspace.</summary>
     /// <param name="services">Scope containing the migrated context and password hasher.</param>
     /// <param name="configuration">Server-only configuration with optional bootstrap values.</param>
     /// <param name="ct">Application startup cancellation.</param>
     public static async Task BootstrapAsync(IServiceProvider services, IConfiguration configuration, CancellationToken ct)
     {
         _ = services.GetRequiredService<DummyCredential>();
+        if (configuration.GetValue<bool>(SettingNames.DemoSeedEnabled))
+        {
+            await DemoAccountSeed.ApplyAsync(services.GetRequiredService<DocumentsDb>(),
+                services.GetRequiredService<IPasswordHasher<WorkspaceUser>>(), configuration, ct);
+            return;
+        }
+
         var configuredUsername = configuration[SettingNames.BootstrapUsername];
         var password = configuration[SettingNames.BootstrapPassword];
         if (string.IsNullOrEmpty(configuredUsername) && string.IsNullOrEmpty(password)) return;

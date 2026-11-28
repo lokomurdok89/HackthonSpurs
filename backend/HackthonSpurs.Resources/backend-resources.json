@@ -291,6 +291,9 @@
     "DocumentConnection": "Documents",
     "StorageRoot": "Storage:Root",
     "MaxFileBytes": "Storage:MaxFileBytes",
+    "DemoSeedEnabled": "Auth:DemoSeedEnabled",
+    "DemoAdminPassword": "Auth:DemoAdminPassword",
+    "DemoReaderPassword": "Auth:DemoReaderPassword",
     "BootstrapUsername": "Auth:BootstrapUsername",
     "BootstrapPassword": "Auth:BootstrapPassword",
     "OcrEnabled": "Spur:Enabled",
@@ -311,6 +314,8 @@
     "OcrJsonLimit": "SPUR_OCR_MAX_JSON_BYTES"
   },
   "ServiceDefaults": {
+    "DemoAdminUsername": "demo.admin",
+    "DemoReaderUsername": "demo.lector",
     "EmbedModel": "spur-embed",
     "EmbedVersion": "1",
     "EmbedDimensions": 768,
@@ -393,6 +398,8 @@
   "ResourceText": {
     "ConnectionRequired": "ConnectionStrings:Documents is required.",
     "StorageInvalid": "Provide an absolute Storage:Root and a valid Storage:MaxFileBytes (1 byte to 1 GiB).",
+    "DemoSeedPasswordInvalid": "Demo provisioning requires valid, distinct initial passwords for missing accounts. Check the private demo settings.",
+    "DemoSeedRoleConflict": "A reserved demo username has a different role. No accounts were changed. Resolve the conflict or disable demo provisioning.",
     "InvalidBootstrap": "Provide both Auth:BootstrapUsername and Auth:BootstrapPassword with valid account values.",
     "ApiOutage": "Document service unavailable. Trace: {TraceId}",
     "MultipartIncomplete": "Incomplete multipart framing.",

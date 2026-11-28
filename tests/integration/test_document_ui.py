@@ -16,6 +16,7 @@ from test_document_api import CSV, RESULT_EXAMPLES, ROOT, compose, sql
 
 
 class WorkspaceBrowser(unittest.TestCase):
+    authenticate_fixture = True
     profiles = ("--profile", "synthetic")
 
     @classmethod
@@ -23,7 +24,7 @@ class WorkspaceBrowser(unittest.TestCase):
         """Start isolated API, Vite and browser processes and register cleanup."""
         cls.addClassCleanup(compose, *cls.profiles, "down", "-v", "--remove-orphans", "--rmi", "local")
         compose(*cls.profiles, "up", "--build", "-d", "--wait")
-        backend.DocumentsAPI.ready()
+        backend.DocumentsAPI.ready(authenticate=cls.authenticate_fixture)
         api_port = backend.DocumentsAPI.base.rsplit(":", 1)[1]
         with socket.socket() as sock:
             sock.bind(("127.0.0.1", 0))

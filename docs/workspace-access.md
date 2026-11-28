@@ -10,6 +10,25 @@ Origin Vault has one shared internal workspace. Accounts are local to the instal
 | Upload or send a document for OCR; use review editing controls | No | No | Yes |
 | List/create users, edit roles, reset passwords, deactivate/reactivate | No | No | Yes |
 
+## Seed the local demo
+
+In your private root `.env`, set `Auth__DemoSeedEnabled=true`, then set
+`Auth__DemoAdminPassword` and `Auth__DemoReaderPassword` to different private passwords
+(12–128 characters). Start or recreate the API with your usual Docker Compose command.
+Demo mode replaces the normal first-admin bootstrap; the settings are not exposed to the browser.
+
+After migrations the API creates only missing accounts: **demo.admin** (administrator)
+and **demo.lector** (reader). An existing account with the same normalized name and role
+is left untouched, even if disabled. A role collision or invalid password for a missing
+account aborts startup without partially creating accounts. No demo accounts are
+created by default; do not enable this mode on a production installation.
+
+After first login, use **Users → Edit → New password** for password changes. The database
+is authoritative: restarting with the old seed password does not reset the account.
+Initial passwords for accounts already present can be cleared from the private environment
+when recreating the API. Disabling the seed does not delete or deactivate existing users.
+If you intentionally change a reserved account's role, disable the seed before restarting.
+
 ## Set up the first administrator
 
 1. In the private root Compose environment, set `Auth__BootstrapUsername` and `Auth__BootstrapPassword` alongside the database password. Choose a unique password of 12–128 characters and a username of 3–64 ASCII letters/digits, dots, hyphens or underscores, starting with a letter/digit. Do not use an example password, pass credentials in a URL or put either value in a `VITE_*` variable.
