@@ -21,7 +21,7 @@ export function PassportView({ passport, shared, showLots = true }: PassportView
   const fields = passport.fields.filter((f) => !shared || shared.has(f.label));
 
   return (
-    <article className="pp" lang="en">
+    <article className="pp theme-light" lang="en">
       <header className="pp__head">
         <div className="pp__brand">
           <LogoIcon size={16} />

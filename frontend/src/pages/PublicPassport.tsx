@@ -16,11 +16,15 @@ export function PublicPassport({ passport, productId, share, lots }: PublicPassp
   }, [productId]);
 
   if (passport.productId !== productId) {
-    return <p style={{ padding: 24 }}>No passport is published for {productId}.</p>;
+    return (
+      <div className="theme-light" style={{ minHeight: "100%", background: "var(--bg)", color: "var(--ink)" }}>
+        <p style={{ margin: 0, padding: 24 }}>No passport is published for {productId}.</p>
+      </div>
+    );
   }
   const shared = new Set(share.map((i) => passport.fields[i]?.label).filter((l): l is string => !!l));
   return (
-    <div style={{ minHeight: "100%", background: "var(--bg)" }}>
+    <div className="theme-light" style={{ minHeight: "100%", background: "var(--bg)" }}>
       <div style={{ maxWidth: 560, margin: "0 auto", minHeight: "100%" }}>
         <PassportView passport={passport} shared={shared} showLots={lots} />
       </div>

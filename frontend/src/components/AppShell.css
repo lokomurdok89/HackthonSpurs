@@ -23,17 +23,25 @@
   outline: none;
 }
 
+/* Keyboard-only shortcut: hidden until reached with Tab, styled like the top bar. */
 .skip-link {
   position: absolute;
   left: 8px;
-  top: -48px;
-  z-index: 50;
-  background: var(--surface);
-  padding: 8px 12px;
-  border-radius: 6px;
-}
-.skip-link:focus {
   top: 8px;
+  z-index: 50;
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  background: var(--chrome-2);
+  color: var(--chrome-strong);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(-200%);
+}
+.skip-link:focus-visible {
+  transform: none;
+  outline: 2px solid var(--chrome-accent);
+  outline-offset: 0;
 }
 
 /* ---------- Top bar ---------- */
@@ -174,14 +182,14 @@
 }
 
 .sidebar__nav {
-  padding: 20px 12px 16px;
+  padding: 20px 0 16px;
   display: flex;
   flex-direction: column;
   gap: 20px;
 }
 .nav-group__label {
   margin: 0 0 4px;
-  padding: 0 12px;
+  padding: 0 20px;
   font-family: var(--font);
   font-size: 13px;
   font-weight: 700;
@@ -190,7 +198,7 @@
 
 .sidebar__bottom {
   margin-top: auto;
-  padding: 12px;
+  padding: 12px 0;
   border-top: 1px solid var(--line);
   display: flex;
   flex-direction: column;
@@ -211,8 +219,8 @@
   align-items: center;
   gap: 12px;
   min-height: 40px;
-  padding: 0 12px;
-  border-radius: var(--radius);
+  padding: 0 20px;
+  border-radius: 0;
   color: var(--ink-2);
   text-decoration: none;
   font-size: 14px;
@@ -342,4 +350,9 @@
   .sidebar {
     transition: none;
   }
+}
+
+/* The account row keeps its inset; the nav rows run edge to edge. */
+.sidebar__bottom .user-card {
+  margin: 0 12px;
 }
