@@ -2,6 +2,7 @@ import { backendMessages, unknownProblem } from "./backendMessages.generated";
 import type { DocumentStatus, Problem, ReadResult, Receipt } from "./types";
 import { ApiError } from "./errors";
 import { mockApi } from "./mock";
+import { workspaceFetch } from "./workspaceFetch";
 
 export { ApiError };
 
@@ -44,7 +45,7 @@ export async function toProblem(res: Response): Promise<Problem> {
  * @param signal - Optional cancellation signal.
  */
 export async function getJson<T>(url: string, signal?: AbortSignal): Promise<T> {
-  const res = await fetch(url, { signal, headers: { Accept: "application/json" } });
+  const res = await workspaceFetch(url, { signal, headers: { Accept: "application/json" } });
   if (!res.ok) throw new ApiError(await toProblem(res));
   return (await res.json()) as T;
 }
@@ -66,7 +67,7 @@ const httpApi: DocumentApi = {
     const type = media[file.name.split(".").pop()?.toLowerCase() ?? ""] ?? file.type;
     data.append("file", type === file.type ? file : file.slice(0, file.size, type), file.name);
     // Let the browser set the multipart boundary.
-    const res = await fetch("/api/documents", {
+    const res = await workspaceFetch("/api/documents", {
       method: "POST",
       headers: { "Idempotency-Key": idempotencyKey, ...(spur ? { "X-OCR-Provider": "spur" } : {}) },
       body: data,
@@ -86,7 +87,7 @@ const httpApi: DocumentApi = {
   result: (id, signal) => getJson<ReadResult>(`/api/documents/${encodeURIComponent(id)}/result`, signal),
 };
 
-const mode = import.meta.env.VITE_API_MODE ?? (import.meta.env.MODE === "api" ? "http" : "mock");
+const mode = import.meta.env.VITE_API_MODE ?? (import.meta.env.MODE === "development" ? "mock" : "http");
 export const apiMode = mode === "http" ? "http" : "mock";
 export const api: DocumentApi = apiMode === "http" ? httpApi : mockApi;
 

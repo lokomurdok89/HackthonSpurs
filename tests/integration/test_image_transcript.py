@@ -29,8 +29,7 @@ class ImageTranscript(ui.DocumentBrowser):
 
     def test_image_receipt_transcript_and_reset(self):
         """Check single-click submission, multiline text, replay and clearing a previous transcript on new selection."""
-        page = self.browser.new_page()
-        self.addCleanup(page.close)
+        page = self.workspace_page()
         page.goto(self.url)
         picker = page.locator("#document-file")
         image = {"name": "test.png", "mimeType": "image/png", "buffer": PNG}
@@ -84,8 +83,7 @@ class ImageTranscript(ui.DocumentBrowser):
 
     def test_safe_reader_failure_on_screen(self):
         """Publish the safe cause beside the receipt without exposing the provider body or indexing a failure."""
-        page = self.browser.new_page()
-        self.addCleanup(page.close)
+        page = self.workspace_page()
         page.goto(self.url)
         page.locator("#document-file").set_input_files({"name": "fake.png", "mimeType": "image/png",
                                                        "buffer": PNG + b"OCR-CREDENTIAL-FAILURE"})
@@ -100,8 +98,7 @@ class ImageTranscript(ui.DocumentBrowser):
 
     def test_pdf_shows_both_pages_on_upload_screen(self):
         """Submit a two-page PDF once and read both persisted page transcripts next to the form."""
-        page = self.browser.new_page()
-        self.addCleanup(page.close)
+        page = self.workspace_page()
         page.goto(self.url)
         page.locator("#document-file").set_input_files({"name": "demo.pdf", "mimeType": "application/pdf", "buffer": pdf(2)})
         expect(page.get_by_role("checkbox")).to_have_count(0)

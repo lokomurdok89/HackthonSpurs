@@ -23,6 +23,8 @@ services:
       PGPASSWORD: ${POSTGRES_PASSWORD:?Set a local database password}
       Storage__Root: /data/originals
       Storage__MaxFileBytes: "${UPLOAD_MAX_BYTES:-}"
+      Auth__BootstrapUsername: "${Auth__BootstrapUsername:-}"
+      Auth__BootstrapPassword: "${Auth__BootstrapPassword:-}"
     ports:
       - "127.0.0.1:${API_PORT:-5080}:8080"
     volumes:

@@ -12,6 +12,17 @@ foreach ($file in $files) {
     $path = (Resolve-Path -LiteralPath $file).Path
     $root = [Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree]::ParseText([IO.File]::ReadAllText($path)).GetRoot()
     foreach ($node in $root.DescendantNodes()) {
+        # EF table/check definitions and the transaction lock are schema, not application resources.
+        if ($file -eq 'backend/HackthonSpurs.Documents/Persistence/WorkspaceMappings.cs') {
+            if ($node -is [Microsoft.CodeAnalysis.CSharp.Syntax.InterpolatedStringTextSyntax] -or
+                $node -is [Microsoft.CodeAnalysis.CSharp.Syntax.LiteralExpressionSyntax]) {
+                if ($node.Ancestors() | Where-Object {
+                    $_ -is [Microsoft.CodeAnalysis.CSharp.Syntax.InvocationExpressionSyntax] -and
+                    $_.Expression.ToString() -match '\.(ToTable|HasCheckConstraint)$'
+                }) { continue }
+                if ($node.Token.ValueText -ceq 'LOCK TABLE workspace_users IN SHARE ROW EXCLUSIVE MODE') { continue }
+            }
+        }
         if ($node -is [Microsoft.CodeAnalysis.CSharp.Syntax.InterpolatedStringTextSyntax]) {
             # Interpolated messages are resources too; only URI/framing punctuation is structural.
             if ($node.TextToken.ValueText -cin @('', '/', 'data:', ';base64,')) { continue }

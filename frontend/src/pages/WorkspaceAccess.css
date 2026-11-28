@@ -1,0 +1,111 @@
+.signin {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  min-height: 100%;
+  padding: 56px 20px 24px;
+  position: relative;
+}
+
+.signin__theme {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+}
+
+.signin__panel {
+  width: min(100%, 420px);
+  padding: clamp(20px, 6vw, 32px);
+}
+
+.signin__brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 900;
+  color: var(--accent-ink);
+}
+
+.signin h1,
+.users h1 {
+  margin: 0;
+}
+
+.account-form {
+  display: grid;
+  gap: 12px;
+  max-width: 480px;
+}
+
+.account-form label:not(.account-form__check),
+.account-form__field {
+  display: grid;
+  gap: 4px;
+  font-weight: 700;
+}
+
+.account-form input:not([type="checkbox"]),
+.account-form select {
+  min-width: 0;
+  min-height: 36px;
+  padding: 6px 9px;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius);
+  font: inherit;
+  font-weight: 400;
+}
+
+.signin form button,
+.account-form__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.signin form button {
+  justify-content: center;
+}
+
+.account-form__check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.account-form__actions {
+  flex-wrap: wrap;
+}
+
+.account-form p,
+.users p[role="status"],
+.users p[role="alert"] {
+  margin: 0;
+}
+
+.users {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+}
+
+.users__list {
+  overflow: auto;
+}
+
+.users table {
+  border-collapse: collapse;
+  text-align: left;
+  width: 100%;
+}
+
+.users td,
+.users th {
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.users td:nth-child(-n+2) {
+  overflow-wrap: anywhere;
+}

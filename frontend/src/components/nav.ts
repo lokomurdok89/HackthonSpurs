@@ -1,7 +1,7 @@
 import type { ComponentType, SVGProps } from "react";
 import { BoxIcon, CheckListIcon, FileIcon, KeyIcon, QrIcon, SearchIcon, SettingsIcon } from "./icons";
 
-export type RouteId = "products" | "review" | "documents" | "search" | "passports" | "access" | "settings";
+export type RouteId = "products" | "review" | "documents" | "search" | "passports" | "access" | "users" | "settings";
 
 export interface NavItem {
   id: RouteId;
@@ -26,6 +26,9 @@ export const navGroups: { label: string; items: NavItem[] }[] = [
   { label: "Sharing", items: mainNav.slice(4) },
 ];
 
-export const secondaryNav: NavItem[] = [{ id: "settings", label: "Settings", icon: SettingsIcon }];
+export const secondaryNav: NavItem[] = [
+  { id: "users", label: "Users", icon: KeyIcon },
+  { id: "settings", label: "Settings", icon: SettingsIcon },
+];
 
 export const allNav = [...mainNav, ...secondaryNav];

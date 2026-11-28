@@ -32,6 +32,8 @@ public sealed class DocumentsDb(DbContextOptions<DocumentsDb> options) : DbConte
     public DbSet<DocumentJob> Documents => Set<DocumentJob>();
     public DbSet<DocumentIndexJob> IndexJobs => Set<DocumentIndexJob>();
     public DbSet<DocumentChunk> Chunks => Set<DocumentChunk>();
+    public DbSet<WorkspaceUser> WorkspaceUsers => Set<WorkspaceUser>();
+    public DbSet<WorkspaceSession> WorkspaceSessions => Set<WorkspaceSession>();
 
     /// <summary>Configure job mappings, uniqueness and state constraints.</summary>
     /// <param name="model">EF Core model builder.</param>
@@ -52,5 +54,6 @@ public sealed class DocumentsDb(DbContextOptions<DocumentsDb> options) : DbConte
         job.Property(d => d.State).HasConversion<string>();
         job.Property(d => d.ResultJson).HasColumnType("jsonb");
         IndexMappings.Configure(model);
+        WorkspaceMappings.Configure(model);
     }
 }

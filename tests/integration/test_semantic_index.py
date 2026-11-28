@@ -97,8 +97,7 @@ class SemanticIndex(ui.DocumentBrowser):
         self.assertEqual(self.send("again.pdf", "application/pdf", original, key), doc)
         self.assertEqual(calls(text), before + 1)
 
-        page = self.browser.new_page()
-        self.addCleanup(page.close)
+        page = self.workspace_page()
         page.goto(self.url.rsplit("#", 1)[0] + f"#/documents/{doc}")
         expect(page.get_by_text("Indexed · 2 excerpts.")).to_be_visible()
         page.get_by_role("link", name="Search this document").click()
@@ -151,7 +150,8 @@ class SemanticIndex(ui.DocumentBrowser):
         self.assertNotIn("provider secret-shaped diagnostic", json.dumps(problem))
         with self.assertRaises(urllib.error.HTTPError) as missing:
             urllib.request.urlopen(urllib.request.Request(api.DocumentsAPI.base + f"/api/documents/{doc}/index",
-                                                         data=b"", method="POST"), timeout=5)
+                                                         data=b"", method="POST", headers={**api.REQUEST_HEADER,
+                                                         "Cookie": api.DocumentsAPI.cookie}), timeout=5)
         self.assertEqual(missing.exception.code, 404)
         self.assertEqual(self.search(" ", doc)[2]["code"], "invalid_search")
         self.assertEqual(self.search("x" * 1001, doc)[2]["code"], "invalid_search")

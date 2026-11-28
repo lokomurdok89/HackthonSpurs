@@ -33,7 +33,7 @@ export function FieldRow({
   decision: Decision;
   highlighted: boolean;
   onFocus: () => void;
-  onDecide: (d: Decision) => void;
+  onDecide?: (d: Decision) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(decision.value ?? field.value);
@@ -54,7 +54,7 @@ export function FieldRow({
         </span>
       </div>
 
-      {editing ? (
+      {editing && onDecide ? (
         <form
           className="field__edit"
           onSubmit={(e) => {
@@ -92,7 +92,7 @@ export function FieldRow({
 
       <div className="field__bottom">
         <span className="muted small">{field.where}</span>
-        {decision.status === "pending" ? (
+        {!onDecide ? null : decision.status === "pending" ? (
           <div className="field__actions">
             <button type="button" className="btn btn--sm btn--ok" onClick={() => onDecide({ status: "approved" })}>
               Approve

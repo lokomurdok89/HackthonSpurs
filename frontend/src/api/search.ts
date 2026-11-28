@@ -1,5 +1,6 @@
 import { getJson, toProblem } from "./client";
 import { ApiError } from "./errors";
+import { workspaceFetch } from "./workspaceFetch";
 import type { DocumentIndexStatus, SearchStats, SemanticSearchResponse } from "./types";
 
 /** Read the durable index state without initiating any work.
@@ -23,7 +24,7 @@ export function getSearchStats(signal?: AbortSignal): Promise<SearchStats> {
  * @param signal - Cancellation for a view that is being closed.
  */
 export async function semanticSearch(query: string, documentId: string, signal?: AbortSignal): Promise<SemanticSearchResponse> {
-  const response = await fetch("/api/search", {
+  const response = await workspaceFetch("/api/search", {
     method: "POST",
     signal,
     headers: { "Content-Type": "application/json", Accept: "application/json" },

@@ -15,7 +15,7 @@ import test_document_api as backend
 from test_document_api import CSV, RESULT_EXAMPLES, ROOT, compose, sql
 
 
-class DocumentBrowser(unittest.TestCase):
+class WorkspaceBrowser(unittest.TestCase):
     profiles = ("--profile", "synthetic")
 
     @classmethod
@@ -53,10 +53,20 @@ class DocumentBrowser(unittest.TestCase):
         cls.browser = driver.chromium.launch(channel=os.environ.get("SPURS_BROWSER_CHANNEL"))
         cls.addClassCleanup(cls.browser.close)
 
+    def workspace_page(self):
+        """Open an independent browser context authenticated by the real API bootstrap session."""
+        page = self.browser.new_page()
+        name, value = backend.DocumentsAPI.cookie.split("=", 1)
+        page.context.add_cookies([{"name": name, "value": value, "url": self.url.split("#")[0],
+                                  "httpOnly": True, "sameSite": "Strict"}])
+        self.addCleanup(page.close)
+        return page
+
+
+class DocumentBrowser(WorkspaceBrowser):
     def test_worker_publishes_to_live_screen(self):
         """Verify the fixture Worker publishes the expected cell and the UI retains it on reload."""
-        page = self.browser.new_page()
-        self.addCleanup(page.close)
+        page = self.workspace_page()
         page.goto(self.url)
         page.get_by_label("Select a document").set_input_files(
             str(ROOT / "backend/reader-fixture/worker-demo.csv"))
@@ -70,8 +80,7 @@ class DocumentBrowser(unittest.TestCase):
 
     def test_mock_replay_uses_bytes_not_name_and_size(self):
         """Verify the mock detects changed bytes even with identical filenames and sizes."""
-        page = self.browser.new_page()
-        self.addCleanup(page.close)
+        page = self.workspace_page()
         page.goto(self.url)
         observed = page.evaluate("""async () => {
             const { mockApi } = await import('/src/api/mock.ts');
@@ -86,8 +95,7 @@ class DocumentBrowser(unittest.TestCase):
 
     def test_live_upload_replay_resume_and_warning(self):
         """Lose the first receipt, replay it, reload and verify a located reading warning."""
-        page = self.browser.new_page()
-        self.addCleanup(page.close)
+        page = self.workspace_page()
         page.goto(self.url)
         expect(page.get_by_text("Local API ·", exact=False)).to_be_visible()
         upload = page.get_by_role("button", name="Upload document")

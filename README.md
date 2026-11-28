@@ -1,9 +1,10 @@
 # HackthonSpurs · Document API
 
-Local, single-user API for the Track 2 demo. It accepts PDF, XLSX and CSV uploads, stores the original privately, and queues one durable PostgreSQL job per operation. It serves status and persisted reading results using the [published OpenAPI contract](docs/api/openapi.json). **Default: API and database only.** The optional [synthetic Worker demo](#run-the-synthetic-worker-demo) processes one known CSV. It is not OCR. Other PDF/XLSX/CSV uploads stay queued. For document OCR, enable the SPUR overlay below.
+Local, authenticated shared-workspace API for the Track 2 demo. It accepts PDF, XLSX and CSV uploads, stores the original privately, and queues one durable PostgreSQL job per operation. It serves status and persisted reading results using the [published OpenAPI contract](docs/api/openapi.json). **Default: API and database only.** The optional [synthetic Worker demo](#run-the-synthetic-worker-demo) processes one known CSV. It is not OCR. Other PDF/XLSX/CSV uploads stay queued. For document OCR, enable the SPUR overlay below.
 
 - [Optional isolated SPUR vision reader](docs/spur-ocr.md) — one authorized page image per request; document upload, queued reading and transcript in Documents.
 - [Optional semantic search](docs/semantic-search.md) — automatically index readable OCR transcripts, then follow ranked excerpts to their original page.
+- [Workspace roles, first administrator and evaluation walkthrough](docs/workspace-access.md)
 - [Architecture and first demo walkthrough](docs/ARCHITECTURE.md)
 - [Run the React UI against the local API](frontend/README.md)
 - [Frontend integration guide and synthetic examples](docs/api/README.md)
@@ -14,8 +15,8 @@ Local, single-user API for the Track 2 demo. It accepts PDF, XLSX and CSV upload
 
 Use Docker with Linux containers and Docker Compose v2. From the repository root:
 
-1. Create a local `.env` from [.env.example](.env.example) **only if one does not exist**. Set `POSTGRES_PASSWORD` to a random, unique local secret. Keep it private and reuse it for the lifetime of the database volume. Do not publish the resolved Compose configuration.
-2. Run `docker compose up --build -d` and check `docker compose ps`. PostgreSQL has no host port. The API runs on loopback at `http://127.0.0.1:5080` by default and applies versioned EF migrations before listening. Use a same-origin dev proxy for a separate UI dev server; do not expose this unauthenticated API to the LAN.
+1. Create a local `.env` from [.env.example](.env.example) **only if one does not exist**. Set `POSTGRES_PASSWORD` to a random, unique local secret and configure the [first administrator](docs/workspace-access.md#set-up-the-first-administrator). Keep it private and reuse it for the lifetime of the database volume. Do not publish the resolved Compose configuration.
+2. Run `docker compose up --build -d` and check `docker compose ps`. PostgreSQL has no host port. The API runs on loopback at `http://127.0.0.1:5080` by default and applies versioned EF migrations before listening. Use a same-origin dev proxy for a separate UI dev server; keep the local demo off the LAN.
 3. Stop with `docker compose down`. The database and original-file volumes survive. No challenge files are mounted. On hosts whose Docker address pools are exhausted, set `SPURS_SUBNET` to an **unused private CIDR** and use `docker compose -f compose.yaml -f compose.subnet.yaml up --build -d`. No other project's networks need to change.
 
 ### Run the synthetic Worker demo
@@ -34,15 +35,17 @@ Stop this profile with `docker compose --profile synthetic down` (no `-v`); the 
 
 ### Try an upload and check its status
 
-From PowerShell, send this **synthetic** CSV without creating a file:
+From PowerShell 7 at the Git root, sign in as an administrator and submit the synthetic fixture. The session stays in memory:
 
 ```powershell
 $api = 'http://127.0.0.1:5080'  # Adjust if API_PORT was changed.
-$key = [guid]::NewGuid().ToString()
-$csv = "part,certificate`r`nCAS-014,CERT-027"
-$receipt = $csv | curl.exe --silent --show-error --fail-with-body -H "Idempotency-Key: $key" -F "file=@-;filename=sample.csv;type=text/csv" "$api/api/documents" | ConvertFrom-Json
-if ($LASTEXITCODE -ne 0 -or !$receipt.id) { throw 'Upload was not accepted.' }
-Invoke-RestMethod "$api/api/documents/$($receipt.id)"
+$credential = Get-Credential -Message 'Local Origin Vault administrator'
+$headers = @{ 'X-Workspace-Request' = '1' }
+$null = Invoke-RestMethod "$api/api/auth/login" -Method Post -ContentType application/json -Headers $headers -SessionVariable workspace -Body (@{ username = $credential.UserName; password = $credential.GetNetworkCredential().Password } | ConvertTo-Json -Compress)
+$headers['Idempotency-Key'] = [guid]::NewGuid().ToString()
+$receipt = Invoke-RestMethod "$api/api/documents" -Method Post -Headers $headers -WebSession $workspace -Form @{ file = Get-Item './backend/reader-fixture/worker-demo.csv' }
+Invoke-RestMethod "$api/api/documents/$($receipt.id)" -WebSession $workspace
+Invoke-RestMethod "$api/api/auth/logout" -Method Post -Headers $headers -WebSession $workspace
 ```
 
 Follow the relative `Location` with GET. The status starts at `Queued`, attempt 0; appending `/result` returns `409/result_not_ready`. Replay the same file and key to recover the receipt after an interrupted response. Use a new key only for a new operation. A result becomes readable only after atomic publication by a Worker. There is no public result-seeding or original-download endpoint.
@@ -52,6 +55,7 @@ Follow the relative `Location` with GET. The status starts at `Queued`, attempt 
 | Setting | Owner and meaning |
 |---|---|
 | `POSTGRES_PASSWORD` | Required Compose secret. Configures the local database and supplies the API password through `PGPASSWORD`; not part of any HTTP payload. |
+| `Auth__BootstrapUsername`, `Auth__BootstrapPassword` | Server-only first administrator provisioning; see [workspace access](docs/workspace-access.md). No default credential or open registration. |
 | `API_PORT` | Local host port, default 5080. |
 | `ConnectionStrings__Documents` | Required for the .NET host. Compose supplies the internal host, database and user. For native development, set a private local value via environment/user tooling. |
 | `Storage__Root` | Required absolute private directory, writable by the API. Compose mounts the originals volume at this path. Never point it at source documents or a public web directory. |
@@ -66,6 +70,8 @@ dotnet build backend/HackthonSpurs.slnx -c Release
 pwsh -NoProfile -File tests/quality/Test-ClassSize.ps1
 pwsh -NoProfile -File tests/contract/Test-DocumentContract.ps1
 python -B tests/integration/test_document_api.py
+python -B tests/integration/test_workspace_auth.py
+python -B tests/integration/test_workspace_ui.py
 dotnet run --project tests/worker/WorkerContract.Tests.csproj -c Release
 python -B tests/integration/test_document_worker.py
 python -B tests/integration/test_semantic_index.py

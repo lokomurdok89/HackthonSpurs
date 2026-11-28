@@ -1,5 +1,6 @@
 using HackthonSpurs.Resources;
 using HackthonSpurs.Api;
+using HackthonSpurs.Api.Auth;
 using HackthonSpurs.Documents.Commands;
 using HackthonSpurs.Documents.Embeddings;
 using HackthonSpurs.Documents.Persistence;
@@ -27,10 +28,14 @@ builder.Services.AddScoped<GetDocumentResultHandler>();
 builder.Services.AddScoped<GetDocumentIndexStatusHandler>();
 builder.Services.AddScoped<DocumentSearchService>();
 SpurEmbeddingSettings.Register(builder.Services, builder.Configuration, builder.Environment.IsEnvironment(SettingNames.TestingEnvironment));
+WorkspaceSecurity.Register(builder.Services);
 
 var app = builder.Build();
 await using (var scope = app.Services.CreateAsyncScope())
+{
     await scope.ServiceProvider.GetRequiredService<DocumentsDb>().Database.MigrateAsync();
+    await WorkspaceSecurity.BootstrapAsync(scope.ServiceProvider, app.Configuration, app.Lifetime.ApplicationStopping);
+}
 
 // Mark document responses private to the request and sanitize persistence outages.
 // context: Current HTTP exchange. next: The remaining request pipeline.
@@ -46,8 +51,14 @@ app.Use(async (context, next) =>
     }
 });
 
+app.UseAuthentication();
+app.UseAuthorization();
+app.Use(WorkspaceSecurity.RequireWorkspaceHeaderAsync);
+app.UseRateLimiter();
+WorkspaceEndpoints.Map(app);
+
 var documents = app.MapGroup(Wire.Documents);
-documents.MapPost("", UploadEndpoint.Handle);
+documents.MapPost("", UploadEndpoint.Handle).RequireAuthorization(Wire.AdminRole);
 documents.MapGet(Wire.ById, DocumentQueries.Status);
 documents.MapGet(Wire.Result, DocumentQueries.Result);
 documents.MapGet(Wire.IndexStatus, SearchEndpoints.Status);

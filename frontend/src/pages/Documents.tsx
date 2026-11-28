@@ -7,8 +7,9 @@ import { DocumentReading } from "./DocumentReading";
  * @param props - Component inputs.
  * @param props.documentId - Receipt from the route, empty before upload.
  * @param props.page - Optional original page linked from an indexed excerpt.
+ * @param props.canUpload - Whether the current account may submit files.
  */
-export function Documents({ documentId, page }: { documentId: string; page?: number }) {
+export function Documents({ documentId, page, canUpload }: { documentId: string; page?: number; canUpload: boolean }) {
   const [submission, setSubmission] = useState<{ file: File; localKey: string; ocrKey: string }>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -24,7 +25,7 @@ export function Documents({ documentId, page }: { documentId: string; page?: num
    */
   async function upload(event: FormEvent) {
     event.preventDefault();
-    if (!submission || busy) return;
+    if (!canUpload || !submission || busy) return;
     const sender = (event.nativeEvent as SubmitEvent).submitter;
     const ocr = apiMode === "http" && (!(sender instanceof HTMLButtonElement) || sender.value !== "local");
     setBusy(true);
@@ -54,10 +55,12 @@ export function Documents({ documentId, page }: { documentId: string; page?: num
   return (
     <section>
       <h1>Documents</h1>
-      <p className="notice">{apiMode === "http"
-        ? "Local API · Uploads are saved privately. Send to OCR transcribes the document with SPUR, one printed page at a time. When enabled, semantic indexing uses the readable transcript. Selecting a file sends nothing."
-        : "Mock mode · Results are invented, kept in this page session and lost on reload."}</p>
-      <form className="panel" onSubmit={upload} ref={form}>
+      <p className="notice">{!canUpload
+        ? "Read-only access. Open a receipt link or search indexed OCR documents."
+        : apiMode === "http"
+          ? "Local API · Uploads are saved privately. Send to OCR transcribes the document with SPUR, one printed page at a time. When enabled, semantic indexing uses the readable transcript. Selecting a file sends nothing."
+          : "Mock mode · Results are invented, kept in this page session and lost on reload."}</p>
+      {canUpload && <form className="panel" onSubmit={upload} ref={form}>
         <label htmlFor="document-file">Select a document</label>{" "}
         <input id="document-file" type="file" accept={apiMode === "http" ? undefined : ACCEPT_ATTRIBUTE} disabled={busy}
           onChange={(e) => {
@@ -78,7 +81,7 @@ export function Documents({ documentId, page }: { documentId: string; page?: num
             {apiMode === "http" ? "Upload document locally" : "Upload document"}
           </button>}
         {error && <p role="alert">{error}</p>}
-      </form>
+      </form>}
       {documentId && (/^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i.test(documentId)
         ? <DocumentReading key={documentId} id={documentId} page={page} />
         : <p role="alert">Invalid document link.</p>)}

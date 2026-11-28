@@ -4,6 +4,10 @@
 
 **Status: locally implemented.** Run the [API and PostgreSQL](../../README.md) or use the invented examples below without any backend. The [Documents screen](../../frontend/README.md) supports both modes and labels them separately. Only the [optional synthetic Worker profile](../../README.md#run-the-synthetic-worker-demo) publishes a reading for the exact demo CSV. The optional [SPUR overlay](../spur-ocr.md) renders PDF/Office/text documents for OCR and accepts PNG/JPEG directly; the same receipt and result routes return the transcription. Other live uploads remain queued. No public deployment or access to the event dataset is required. The OpenAPI file is the source of truth for field names, casing, media types, examples and errors.
 
+## Workspace session
+
+Sign in (`POST /api/auth/login`), then use the same-origin HttpOnly cookie for all document and account requests. Send `X-Workspace-Request: 1` on every POST/PATCH, including login and search. A reader may search or follow a receipt but may not upload. See [workspace roles and provisioning](../workspace-access.md) and the [schema](openapi.json) for the user-management contract. Treat 401 as an expired/missing session and 403 as a refusal, not a retryable document-processing error. Unauthenticated legacy callers must sign in; document success payloads have not changed.
+
 ## Upload → poll → read
 
 | Request | What the UI should do |
@@ -20,7 +24,7 @@ async function upload(file: File, operationKey: string) {
   data.append("file", file);
   return fetch("/api/documents", {
     method: "POST",
-    headers: { "Idempotency-Key": operationKey },
+    headers: { "Idempotency-Key": operationKey, "X-Workspace-Request": "1" },
     body: data,
   });
 }

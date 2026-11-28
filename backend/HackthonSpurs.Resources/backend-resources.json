@@ -58,6 +58,56 @@
       "message": "Service temporarily unavailable.",
       "status": 503
     },
+    "AuthenticationRequired": {
+      "code": "authentication_required",
+      "message": "Sign in to access the workspace.",
+      "status": 401
+    },
+    "InvalidCredentials": {
+      "code": "invalid_credentials",
+      "message": "Invalid username or password.",
+      "status": 401
+    },
+    "Forbidden": {
+      "code": "forbidden",
+      "message": "Your role does not allow this action.",
+      "status": 403
+    },
+    "WorkspaceRequestRequired": {
+      "code": "workspace_request_required",
+      "message": "The workspace request header is required.",
+      "status": 403
+    },
+    "LoginRateLimited": {
+      "code": "login_rate_limited",
+      "message": "Too many sign-in attempts. Wait a minute and try again.",
+      "status": 429
+    },
+    "InvalidAuthRequest": {
+      "code": "invalid_auth_request",
+      "message": "Check the account fields and try again.",
+      "status": 400
+    },
+    "UserNotFound": {
+      "code": "user_not_found",
+      "message": "User not found.",
+      "status": 404
+    },
+    "UsernameTaken": {
+      "code": "username_taken",
+      "message": "That username is already in use.",
+      "status": 409
+    },
+    "LastActiveAdmin": {
+      "code": "last_active_admin",
+      "message": "The workspace must keep at least one active administrator.",
+      "status": 409
+    },
+    "SelfLockout": {
+      "code": "self_lockout",
+      "message": "You cannot deactivate your own account or remove your own admin role.",
+      "status": 409
+    },
     "InvalidSearch": {
       "code": "invalid_search",
       "message": "Provide a query of 1 to 1000 characters and a result limit of 1 to 50.",
@@ -224,6 +274,8 @@
     "DocumentConnection": "Documents",
     "StorageRoot": "Storage:Root",
     "MaxFileBytes": "Storage:MaxFileBytes",
+    "BootstrapUsername": "Auth:BootstrapUsername",
+    "BootstrapPassword": "Auth:BootstrapPassword",
     "OcrEnabled": "Spur:Enabled",
     "IndexWorker": "Indexing:Worker",
     "ReaderEndpoint": "Reader:Endpoint",
@@ -260,6 +312,18 @@
     "MultipartOverhead": 65536,
     "MaxBoundary": 70,
     "MaxSearchBody": 16384,
+    "MaxAuthBody": 4096,
+    "MinUsernameLength": 3,
+    "MaxUsernameLength": 64,
+    "MaxDisplayNameLength": 120,
+    "MinPasswordLength": 12,
+    "MaxPasswordLength": 128,
+    "PasswordHashIterations": 210000,
+    "SessionTokenBytes": 32,
+    "SessionTokenLength": 43,
+    "SessionHours": 8,
+    "LoginPermits": 12,
+    "LoginWindowSeconds": 60,
     "MaxQueryLength": 1000,
     "DefaultTopK": 8,
     "MaxTopK": 50,
@@ -300,6 +364,7 @@
   "ResourceText": {
     "ConnectionRequired": "ConnectionStrings:Documents is required.",
     "StorageInvalid": "Provide an absolute Storage:Root and a valid Storage:MaxFileBytes (1 byte to 1 GiB).",
+    "InvalidBootstrap": "Provide both Auth:BootstrapUsername and Auth:BootstrapPassword with valid account values.",
     "ApiOutage": "Document service unavailable. Trace: {TraceId}",
     "MultipartIncomplete": "Incomplete multipart framing.",
     "OriginalIncomplete": "Incomplete upload stream.",
@@ -324,6 +389,17 @@
   },
   "Wire": {
     "Documents": "/api/documents",
+    "Auth": "/api/auth",
+    "Login": "/login",
+    "Me": "/me",
+    "Logout": "/logout",
+    "Users": "/api/users",
+    "WorkspaceScheme": "Workspace",
+    "WorkspaceCookie": "origin_vault_session",
+    "WorkspaceRequestHeader": "X-Workspace-Request",
+    "WorkspaceRequestValue": "1",
+    "AdminRole": "admin",
+    "ReaderRole": "reader",
     "ById": "/{id}",
     "Result": "/{id}/result",
     "IndexStatus": "/{id}/index-status",

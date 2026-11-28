@@ -16,6 +16,16 @@ public static class Errors
     public static readonly BackendError UnsupportedMediaType = new("unsupported_media_type", "Unsupported file or request format.", 415, false);
     public static readonly BackendError OcrDisabled = new("ocr_disabled", "SPUR document reading is not enabled.", 503, false);
     public static readonly BackendError ServiceUnavailable = new("service_unavailable", "Service temporarily unavailable.", 503, false);
+    public static readonly BackendError AuthenticationRequired = new("authentication_required", "Sign in to access the workspace.", 401, false);
+    public static readonly BackendError InvalidCredentials = new("invalid_credentials", "Invalid username or password.", 401, false);
+    public static readonly BackendError Forbidden = new("forbidden", "Your role does not allow this action.", 403, false);
+    public static readonly BackendError WorkspaceRequestRequired = new("workspace_request_required", "The workspace request header is required.", 403, false);
+    public static readonly BackendError LoginRateLimited = new("login_rate_limited", "Too many sign-in attempts. Wait a minute and try again.", 429, false);
+    public static readonly BackendError InvalidAuthRequest = new("invalid_auth_request", "Check the account fields and try again.", 400, false);
+    public static readonly BackendError UserNotFound = new("user_not_found", "User not found.", 404, false);
+    public static readonly BackendError UsernameTaken = new("username_taken", "That username is already in use.", 409, false);
+    public static readonly BackendError LastActiveAdmin = new("last_active_admin", "The workspace must keep at least one active administrator.", 409, false);
+    public static readonly BackendError SelfLockout = new("self_lockout", "You cannot deactivate your own account or remove your own admin role.", 409, false);
     public static readonly BackendError InvalidSearch = new("invalid_search", "Provide a query of 1 to 1000 characters and a result limit of 1 to 50.", 400, false);
     public static readonly BackendError EmbeddingsNotConfigured = new("embeddings_not_configured", "Semantic search is not enabled.", 503, false);
     public static readonly BackendError EmbeddingProviderTimeout = new("embedding_provider_timeout", "The semantic search provider timed out.", 504, false);
@@ -54,15 +64,17 @@ public static class Errors
         {
             InvalidRequest, InvalidDocumentId, DocumentNotFound, IdempotencyConflict,
             ResultNotReady, ProcessingFailed, FileTooLarge, UnsupportedMediaType,
-            OcrDisabled, ServiceUnavailable, InvalidSearch, EmbeddingsNotConfigured,
-            EmbeddingProviderTimeout, EmbeddingProviderUnavailable, EmbeddingProviderRejected, EmbeddingResponseInvalid,
-            InvalidReaderRequest, UnsupportedImageType, LengthRequired, ImageTooLarge,
-            EmptyImage, IncompleteImage, InvalidReaderResult, ReaderCredentialsRejected,
-            ReaderRequestRejected, ReaderTimeout, ReaderUnavailable, ReaderRejected,
-            OriginalMismatch, OriginalUnavailable, DocumentTimeout, UnsupportedDocument,
-            DocumentNotRenderable, TooManyPages, RendererUnavailable, LeaseExpired,
-            IndexLeaseExpired, IndexSourceInvalid, NoReadableText, FixtureMismatch,
-            InvalidFixtureRequest, UnsupportedFixture,
+            OcrDisabled, ServiceUnavailable, AuthenticationRequired, InvalidCredentials,
+            Forbidden, WorkspaceRequestRequired, LoginRateLimited, InvalidAuthRequest,
+            UserNotFound, UsernameTaken, LastActiveAdmin, SelfLockout,
+            InvalidSearch, EmbeddingsNotConfigured, EmbeddingProviderTimeout, EmbeddingProviderUnavailable,
+            EmbeddingProviderRejected, EmbeddingResponseInvalid, InvalidReaderRequest, UnsupportedImageType,
+            LengthRequired, ImageTooLarge, EmptyImage, IncompleteImage,
+            InvalidReaderResult, ReaderCredentialsRejected, ReaderRequestRejected, ReaderTimeout,
+            ReaderUnavailable, ReaderRejected, OriginalMismatch, OriginalUnavailable,
+            DocumentTimeout, UnsupportedDocument, DocumentNotRenderable, TooManyPages,
+            RendererUnavailable, LeaseExpired, IndexLeaseExpired, IndexSourceInvalid,
+            NoReadableText, FixtureMismatch, InvalidFixtureRequest, UnsupportedFixture,
         }.ToFrozenDictionary(error => error.Code, StringComparer.Ordinal);
 }
 
@@ -71,6 +83,8 @@ public static class SettingNames
     public const string DocumentConnection = "Documents";
     public const string StorageRoot = "Storage:Root";
     public const string MaxFileBytes = "Storage:MaxFileBytes";
+    public const string BootstrapUsername = "Auth:BootstrapUsername";
+    public const string BootstrapPassword = "Auth:BootstrapPassword";
     public const string OcrEnabled = "Spur:Enabled";
     public const string IndexWorker = "Indexing:Worker";
     public const string ReaderEndpoint = "Reader:Endpoint";
@@ -111,6 +125,18 @@ public static class Policy
     public const int MultipartOverhead = 65536;
     public const int MaxBoundary = 70;
     public const int MaxSearchBody = 16384;
+    public const int MaxAuthBody = 4096;
+    public const int MinUsernameLength = 3;
+    public const int MaxUsernameLength = 64;
+    public const int MaxDisplayNameLength = 120;
+    public const int MinPasswordLength = 12;
+    public const int MaxPasswordLength = 128;
+    public const int PasswordHashIterations = 210000;
+    public const int SessionTokenBytes = 32;
+    public const int SessionTokenLength = 43;
+    public const int SessionHours = 8;
+    public const int LoginPermits = 12;
+    public const int LoginWindowSeconds = 60;
     public const int MaxQueryLength = 1000;
     public const int DefaultTopK = 8;
     public const int MaxTopK = 50;
@@ -153,6 +179,7 @@ public static class ResourceText
 {
     public const string ConnectionRequired = "ConnectionStrings:Documents is required.";
     public const string StorageInvalid = "Provide an absolute Storage:Root and a valid Storage:MaxFileBytes (1 byte to 1 GiB).";
+    public const string InvalidBootstrap = "Provide both Auth:BootstrapUsername and Auth:BootstrapPassword with valid account values.";
     public const string ApiOutage = "Document service unavailable. Trace: {TraceId}";
     public const string MultipartIncomplete = "Incomplete multipart framing.";
     public const string OriginalIncomplete = "Incomplete upload stream.";
@@ -179,6 +206,17 @@ public static class ResourceText
 public static class Wire
 {
     public const string Documents = "/api/documents";
+    public const string Auth = "/api/auth";
+    public const string Login = "/login";
+    public const string Me = "/me";
+    public const string Logout = "/logout";
+    public const string Users = "/api/users";
+    public const string WorkspaceScheme = "Workspace";
+    public const string WorkspaceCookie = "origin_vault_session";
+    public const string WorkspaceRequestHeader = "X-Workspace-Request";
+    public const string WorkspaceRequestValue = "1";
+    public const string AdminRole = "admin";
+    public const string ReaderRole = "reader";
     public const string ById = "/{id}";
     public const string Result = "/{id}/result";
     public const string IndexStatus = "/{id}/index-status";

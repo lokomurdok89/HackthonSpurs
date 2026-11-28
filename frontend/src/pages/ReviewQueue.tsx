@@ -23,8 +23,8 @@ function FileName({ name }: { name: string }) {
   );
 }
 
-/** Render the provided demo review items and manage local field decisions. */
-export function ReviewQueue({ items }: { items: ReviewItem[] }) {
+/** Render the provided demo review items and either allow or suppress local decisions according to the role. */
+export function ReviewQueue({ items, canReview }: { items: ReviewItem[]; canReview: boolean }) {
   const [selectedId, setSelectedId] = useState(items[0]?.id);
   const [decisions, setDecisions] = useState<Decisions>({});
   const [hoverField, setHoverField] = useState<string | undefined>();
@@ -148,9 +148,9 @@ export function ReviewQueue({ items }: { items: ReviewItem[] }) {
             <h2 id="fields-title" className="rq__colhead">
               Extracted values
             </h2>
-            <button type="button" className="btn btn--sm" disabled={!confidentPending} onClick={approveConfident}>
+            {canReview && <button type="button" className="btn btn--sm" disabled={!confidentPending} onClick={approveConfident}>
               Approve {confidentPending} at 95%+
-            </button>
+            </button>}
           </div>
           <ul className="fields">
             {item.fields.map((f) => (
@@ -160,7 +160,7 @@ export function ReviewQueue({ items }: { items: ReviewItem[] }) {
                 decision={decisionFor(item.id, f.id)}
                 highlighted={hoverField === f.id}
                 onFocus={() => setHoverField(f.id)}
-                onDecide={(d) => decide(f.id, d)}
+                onDecide={canReview ? (d) => decide(f.id, d) : undefined}
               />
             ))}
           </ul>

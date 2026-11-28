@@ -50,19 +50,47 @@ function Matches-Schema($schema, $value) {
     return (Test-Json -Json $json -Schema $root -ErrorAction SilentlyContinue)
 }
 
+# Validate references outside response schemas too, including path/header parameters.
+$raw = Get-Content -Raw -LiteralPath (Join-Path $PSScriptRoot '../../docs/api/openapi.json')
+foreach ($match in [regex]::Matches($raw, '"\$ref"\s*:\s*"([^"]+)"')) {
+    $null = Resolve-LocalRef $match.Groups[1].Value
+}
 $upload = $spec.paths['/api/documents'].post
 $status = $spec.paths['/api/documents/{id}'].get
 $result = $spec.paths['/api/documents/{id}/result'].get
 $index = $spec.paths['/api/documents/{id}/index-status'].get
 $search = $spec.paths['/api/search'].post
 $stats = $spec.paths['/api/search/stats'].get
-Require ($spec.paths.Count -eq 6 -and $upload -and $status -and $result -and $index -and $search -and $stats) 'Unexpected public routes.'
+Require ($spec.paths.Count -eq 11 -and $upload -and $status -and $result -and $index -and $search -and $stats) 'Unexpected public routes.'
 Require ($upload.parameters[0].name -ceq 'Idempotency-Key' -and $upload.parameters[0].required) 'Missing upload key.'
 $ocr = $upload.parameters | Where-Object name -CEQ 'X-OCR-Provider'
 Require ($ocr -and !$ocr.required -and $ocr.schema.enum -ccontains 'spur') 'SPUR must be an explicit optional header.'
 Require ($upload.requestBody.content['multipart/form-data'].schema.required -contains 'file') 'Missing file part.'
 Require ($upload.responses['202'].headers.Location.required) 'Missing status link.'
 
+$cookie = $spec.components.securitySchemes.workspaceCookie
+Require ($cookie.in -eq 'cookie' -and $cookie.name -eq 'origin_vault_session') 'Session cookie contract changed.'
+Require ($spec.security[0].Contains('workspaceCookie')) 'Session must be required by default.'
+$login = $spec.paths['/api/auth/login'].post
+Require ($login.Contains('security') -and $login.security.Count -eq 0) 'Only login should allow anonymous callers.'
+foreach ($path in $spec.paths.Values) {
+    foreach ($verb in 'get','post','patch') {
+        $op = $path[$verb]
+        if (!$op) { continue }
+        if ($op.operationId -ne 'signIn') {
+            Require (!$op.Contains('security') -and $op.responses.Contains('401')) "Unprotected operation: $($op.operationId)"
+        }
+        if ($verb -ne 'get') {
+            Require (($op.parameters | Where-Object { $_.'$ref' -eq '#/components/parameters/WorkspaceRequest' }) -and
+                $op.responses.Contains('403')) "Missing request marker: $($op.operationId)"
+        }
+    }
+}
+$account = $spec.paths['/api/auth/me'].get.responses['200'].content['application/json'].examples.sample.value
+Require (Matches-Schema $spec.components.schemas.WorkspaceUser $account) 'Invalid user projection.'
+$unsafe = $account.Clone()
+$unsafe.password = 'not-a-returned-field'
+Require (-not (Matches-Schema $spec.components.schemas.WorkspaceUser $unsafe)) 'Credential material allowed in user projection.'
 $count = 0
 foreach ($op in @($upload, $status, $result, $index, $search, $stats)) {
     foreach ($entry in $op.responses.GetEnumerator()) {
@@ -112,4 +140,4 @@ Require (-not (Matches-Schema $spec.components.schemas.DocumentIndexStatus $inde
 $hit = $search.responses['200'].content['application/json'].examples.hit.value.results[0].Clone()
 $hit.pageLocator = @{kind='page';page=21}
 Require (-not (Matches-Schema $spec.components.schemas.SemanticSearchHit $hit)) 'Out-of-bounds search page accepted.'
-Write-Output "PASS: $count response examples, six public routes, demo fixtures and schema guardrails."
+Write-Output "PASS: $count response examples, six document/search operations and workspace access contract, demo fixtures and schema guardrails."

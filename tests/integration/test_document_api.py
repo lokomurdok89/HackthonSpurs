@@ -8,9 +8,8 @@ import secrets
 import subprocess
 import time
 import unittest
-import urllib.error
-import urllib.request
 import uuid
+from workspace_client import ADMIN, PASSWORD, REQUEST_HEADER, call, session
 from document_fixtures import form, workbook
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -18,7 +17,8 @@ SPEC = json.loads((ROOT / "docs/api/openapi.json").read_text(encoding="utf-8"))
 RESULT_EXAMPLES = SPEC["paths"]["/api/documents/{id}/result"]["get"]["responses"]["200"]["content"]["application/json"]["examples"]
 LIMIT = 32768  # Small test-only limit; the API default is 20 MiB.
 PROJECT = "spurs-test-" + uuid.uuid4().hex[:12]
-ENV = dict(os.environ, POSTGRES_PASSWORD=secrets.token_hex(24), API_PORT="0", UPLOAD_MAX_BYTES=str(LIMIT),
+ENV = dict(os.environ, Auth__BootstrapUsername=ADMIN, Auth__BootstrapPassword=PASSWORD,
+           POSTGRES_PASSWORD=secrets.token_hex(24), API_PORT="0", UPLOAD_MAX_BYTES=str(LIMIT),
            COMPOSE_FILE=os.pathsep.join([os.environ.get("COMPOSE_FILE", "compose.yaml"),
                                          "tests/integration/compose.test-base.yaml"]))
 CSV = b'part,certificate\r\n"CAS-014","CERT-027"\r\n'
@@ -47,13 +47,14 @@ class DocumentsAPI(unittest.TestCase):
         cls.ready()
 
     @classmethod
-    def ready(cls):
-        """Wait for the isolated API to return a real not-found response and refresh the test base URL."""
+    def ready(cls, authenticate=True):
+        """Wait for the private API to return 401; sign in only if authenticate is enabled."""
         # Docker may reassign an ephemeral host port when the API container restarts.
         cls.base = "http://" + compose("port", "api", "8080", capture=True).strip()
         for _ in range(80):
             try:
-                if cls.http("/api/documents/" + str(uuid.uuid4()))[0] == 404:
+                if call(cls.base, "/api/auth/me")[0] == 401:
+                    cls.cookie = session(cls.base) if authenticate else None
                     return
             except (OSError, ValueError):
                 pass
@@ -63,13 +64,7 @@ class DocumentsAPI(unittest.TestCase):
     @classmethod
     def http(cls, url, body=None, headers=None):
         """Call the relative url with optional body and headers, returning status, headers and decoded JSON."""
-        req = urllib.request.Request(cls.base + url, body, headers or {})
-        try:
-            response = urllib.request.urlopen(req, timeout=20)
-        except urllib.error.HTTPError as err:
-            response = err
-        with response:
-            return response.status, response.headers, json.load(response)
+        return call(cls.base, url, body, {**REQUEST_HEADER, "Cookie": cls.cookie, **(headers or {})})
 
     def upload(self, key=None, data=CSV, mime="text/csv", name="input.csv"):
         """Submit data as name with the declared mime type and optional idempotency key."""
