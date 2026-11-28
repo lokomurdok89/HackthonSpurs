@@ -43,6 +43,7 @@ class WorkspaceAuth(unittest.TestCase):
         reader_cookie = session(self.base, reader["username"].upper(), password)
         doc = "/api/documents/" + str(uuid.uuid4())
         for path, data, verb in [(doc, None, "GET"), (doc + "/result", None, "GET"),
+                                 (doc + "/chunks", None, "GET"), (doc + "/reindex", None, "POST"),
                                  (doc + "/index-status", None, "GET"), ("/api/search/stats", None, "GET"),
                                  ("/api/search", {"query": "test"}, "POST"), ("/api/documents", {}, "POST"),
                                  ("/api/users", None, "GET"), ("/api/users", {}, "POST"),
@@ -50,7 +51,7 @@ class WorkspaceAuth(unittest.TestCase):
             with self.subTest(path=path, verb=verb):
                 self.assertEqual(api_json(self.base, path, data, method=verb)[0], 401)
                 code = api_json(self.base, path, data, reader_cookie, verb)[0]
-                if path.startswith("/api/users") or path == "/api/documents":
+                if path.startswith("/api/users") or path in ("/api/documents", doc + "/reindex"):
                     self.assertEqual(code, 403)
                 elif path.startswith(doc):
                     self.assertEqual(code, 404)

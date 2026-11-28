@@ -58,6 +58,8 @@ class ImageTranscript(ui.DocumentBrowser):
                 headers["X-OCR-Provider"] = "spur"
             return api.DocumentsAPI.http("/api/documents", body, headers)
         self.assertEqual(send(key, True)[2]["id"], doc)
+        reads = api.compose("logs", "--no-log-prefix", "spur-reader", capture=True).splitlines()
+        self.assertEqual([line.strip() for line in reads if line.startswith(doc)], [doc + " 1"])
         self.assertEqual(send(key, False)[0], 409)
         self.assertEqual(send(str(uuid.uuid4()), False)[0], 415)
         body, mime = api.form([("file", "lie.png", "image/png", api.PDF)])

@@ -14,9 +14,13 @@ class WorkspaceScreens(fixture.WorkspaceBrowser):
 
     def login(self, page, username, password):
         """Sign in through the visible form on page using the named test account and its ephemeral password."""
-        page.get_by_label("Username", exact=True).fill(username)
-        page.get_by_label("Password", exact=True).fill(password)
-        page.get_by_role("button", name="Sign in", exact=True).click()
+        # Logout is asynchronous: never fill the still-mounted admin account form.
+        form = page.get_by_role("form", name="Sign in", exact=True)
+        form.get_by_label("Username", exact=True).fill(username)
+        form.get_by_label("Password", exact=True).fill(password)
+        with page.expect_response(lambda r: r.request.method == "POST" and r.url.endswith("/api/auth/login")) as login:
+            form.get_by_role("button", name="Sign in", exact=True).click()
+        self.assertEqual(login.value.status, 200, "Expected a successful workspace login")
 
     def test_maintainer_and_reader(self):
         """Create and edit an account, switch identity and confirm reader-only controls survive direct navigation."""
@@ -68,7 +72,9 @@ class WorkspaceScreens(fixture.WorkspaceBrowser):
         self.addCleanup(page.close)
         private = []
         page.on("request", lambda request: private.append(request.method) if urlsplit(request.url).path.startswith("/api/") else None)
+        page.emulate_media(color_scheme="dark")
         page.goto(self.url.replace("#/documents", "#/p/EX-100?share=0&lots=0"))
+        expect(page.locator(".theme-light").first).to_have_css("color-scheme", "light")
         expect(page.get_by_text("Example welded bracket", exact=False).first).to_be_visible()
         expect(page.get_by_label("Username", exact=True)).to_have_count(0)
         self.assertEqual(private, [])
