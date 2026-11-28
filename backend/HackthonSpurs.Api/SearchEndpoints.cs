@@ -87,6 +87,15 @@ internal static class SearchEndpoints
     public static async Task<IResult> Stats(DocumentSearchService search, CancellationToken ct) =>
         Results.Ok(await search.GetStatsAsync(ct));
 
+    public static async Task<IResult> Chunks(string id, DocumentSearchService search, CancellationToken ct)
+    {
+        if (!Guid.TryParseExact(id, "D", out var documentId))
+            return ApiProblems.InvalidId();
+
+        var detail = await search.GetDocumentDetailAsync(documentId, ct);
+        return detail is null ? ApiProblems.NotFound() : Results.Ok(detail);
+    }
+
     private static IResult Problem(int status, string code, string title) =>
         Results.Problem(statusCode: status, title: title, extensions: new Dictionary<string, object?> { ["code"] = code });
 }

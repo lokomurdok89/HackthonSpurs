@@ -20,14 +20,33 @@ public sealed record SemanticSearchHit(
 public sealed record SearchStats(
     bool EmbeddingsConfigured,
     string Model,
+    bool VisionOcrConfigured,
+    string? VisionModel,
     int TotalDocuments,
     int IndexedDocuments,
     int TotalChunks);
 
+public sealed record DocumentChunkView(
+    Guid ChunkId,
+    int ChunkIndex,
+    string Locator,
+    string Text,
+    string Model);
+
+public sealed record DocumentDetailView(
+    Guid DocumentId,
+    string? SourceName,
+    string MediaType,
+    long ByteCount,
+    string State,
+    DateTimeOffset CreatedAt,
+    IReadOnlyList<DocumentChunkView> Chunks);
+
 public sealed class DocumentSearchService(
     DocumentsDb db,
     OriginalStore store,
-    SpurEmbeddingClient embeddings)
+    SpurEmbeddingClient embeddings,
+    SpurVisionOcrClient visionOcr)
 {
     public async Task<IndexDocumentResult?> IndexDocumentAsync(
         Guid documentId,
@@ -41,7 +60,7 @@ public sealed class DocumentSearchService(
 
         var chunks = explicitChunks is { Count: > 0 }
             ? explicitChunks
-            : DocumentTextExtractor.Extract(store.GetOriginalPath(documentId), doc.MediaType);
+            : await DocumentTextExtractor.ExtractAsync(store.GetOriginalPath(documentId), doc.MediaType, visionOcr, ct);
 
         var cleaned = chunks
             .Where(c => !string.IsNullOrWhiteSpace(c.Text))
@@ -131,8 +150,33 @@ public sealed class DocumentSearchService(
         return new SearchStats(
             embeddings.IsConfigured,
             embeddings.Model,
+            visionOcr.IsConfigured,
+            visionOcr.IsConfigured ? visionOcr.Model : null,
             totalDocuments,
             indexedDocuments,
             totalChunks);
+    }
+
+    public async Task<DocumentDetailView?> GetDocumentDetailAsync(Guid documentId, CancellationToken ct)
+    {
+        var doc = await db.Documents.AsNoTracking().SingleOrDefaultAsync(d => d.Id == documentId, ct);
+        if (doc is null)
+            return null;
+
+        var chunks = await db.Chunks.AsNoTracking()
+            .Where(c => c.DocumentId == documentId)
+            .OrderBy(c => c.ChunkIndex)
+            .Select(c => new { c.Id, c.ChunkIndex, c.SourceName, c.Locator, c.Text, c.Model })
+            .ToListAsync(ct);
+
+        var sourceName = chunks.FirstOrDefault(c => !string.IsNullOrWhiteSpace(c.SourceName))?.SourceName;
+        return new DocumentDetailView(
+            doc.Id,
+            sourceName,
+            doc.MediaType,
+            doc.ByteCount,
+            doc.State.ToString(),
+            doc.CreatedAt,
+            chunks.Select(c => new DocumentChunkView(c.Id, c.ChunkIndex, c.Locator, c.Text, c.Model)).ToList());
     }
 }

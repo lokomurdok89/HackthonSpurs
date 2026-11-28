@@ -52,13 +52,17 @@ export const ACCEPTED_TYPES = [
   "application/pdf",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   "text/csv",
+  "image/png",
+  "image/jpeg",
 ] as const;
 
-export const ACCEPT_ATTRIBUTE = ".pdf,.xlsx,.csv";
+export const ACCEPT_ATTRIBUTE = ".pdf,.xlsx,.csv,.png,.jpg,.jpeg";
 
 export interface SearchStats {
   embeddingsConfigured: boolean;
   model: string;
+  visionOcrConfigured: boolean;
+  visionModel?: string | null;
   totalDocuments: number;
   indexedDocuments: number;
   totalChunks: number;
@@ -85,4 +89,22 @@ export interface IndexDocumentResponse {
   documentId: Uuid;
   chunkCount: number;
   model: string;
+}
+
+export interface DocumentChunkView {
+  chunkId: Uuid;
+  chunkIndex: number;
+  locator: string;
+  text: string;
+  model: string;
+}
+
+export interface DocumentDetailView {
+  documentId: Uuid;
+  sourceName?: string | null;
+  mediaType: string;
+  byteCount: number;
+  state: string;
+  createdAt: string;
+  chunks: DocumentChunkView[];
 }

@@ -1,5 +1,6 @@
 import { ApiError } from "./errors";
 import type {
+  DocumentDetailView,
   IndexDocumentResponse,
   Problem,
   Receipt,
@@ -63,4 +64,22 @@ export async function uploadAndIndexDocument(file: File): Promise<{
   const indexed = (await indexRes.json()) as IndexDocumentResponse;
 
   return { receipt, indexed };
+}
+
+export async function getDocumentDetail(id: string): Promise<DocumentDetailView> {
+  const res = await fetch(`/api/documents/${encodeURIComponent(id)}/chunks`, {
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) throw new ApiError(await readProblem(res));
+  return (await res.json()) as DocumentDetailView;
+}
+
+export async function reindexDocument(id: string, sourceName?: string | null): Promise<IndexDocumentResponse> {
+  const res = await fetch(`/api/documents/${encodeURIComponent(id)}/index`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ sourceName: sourceName || undefined }),
+  });
+  if (!res.ok) throw new ApiError(await readProblem(res));
+  return (await res.json()) as IndexDocumentResponse;
 }

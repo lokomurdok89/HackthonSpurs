@@ -10,6 +10,8 @@ public static class FileIdentification
     private const string Pdf = "application/pdf";
     private const string Workbook = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
     private const string Csv = "text/csv";
+    private const string Png = "image/png";
+    private const string Jpeg = "image/jpeg";
 
     public static string? Identify(string path, string declared)
     {
@@ -22,6 +24,10 @@ public static class FileIdentification
             actual = length == 8 && char.IsAsciiDigit((char)header[5]) && header[6] == '.' && char.IsAsciiDigit((char)header[7]) ? Pdf : null;
         else if (header[..length].StartsWith("PK\x03\x04"u8))
             actual = IsWorkbook(stream) ? Workbook : null;
+        else if (length >= 8 && header[..8].SequenceEqual("\x89PNG\r\n\x1a\n"u8))
+            actual = Png;
+        else if (length >= 3 && header[0] == 0xFF && header[1] == 0xD8 && header[2] == 0xFF)
+            actual = Jpeg;
         else
             actual = IsCsv(stream, declared == Csv) ? Csv : null;
         return declared == "application/octet-stream" || declared == actual ? actual : null;

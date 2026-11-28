@@ -1,7 +1,9 @@
+using System.Diagnostics;
 using System.IO.Compression;
 using System.Text;
 using System.Xml.Linq;
 using UglyToad.PdfPig;
+using UglyToad.PdfPig.Content;
 
 namespace HackthonSpurs.Documents.Embeddings;
 
@@ -12,41 +14,188 @@ public static class DocumentTextExtractor
     private const int MaxChunkChars = 1000;
     private const int ChunkOverlapChars = 150;
     private const int RowsPerChunk = 25;
+    private const int MinNativePdfPageChars = 20;
 
-    public static IReadOnlyList<ExtractedChunk> Extract(string path, string mediaType)
+    public static async Task<IReadOnlyList<ExtractedChunk>> ExtractAsync(
+        string path,
+        string mediaType,
+        SpurVisionOcrClient? visionOcr,
+        CancellationToken ct)
     {
         if (!File.Exists(path))
             return [];
 
         return mediaType switch
         {
-            "application/pdf" => ExtractPdf(path),
+            "application/pdf" => await ExtractPdfAsync(path, visionOcr, ct),
             "text/csv" => ExtractCsv(path),
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" => ExtractXlsx(path),
+            "image/png" or "image/jpeg" => await ExtractImageAsync(path, mediaType, visionOcr, ct),
             _ => []
         };
     }
 
-    private static List<ExtractedChunk> ExtractPdf(string path)
+    private static async Task<List<ExtractedChunk>> ExtractPdfAsync(
+        string path,
+        SpurVisionOcrClient? visionOcr,
+        CancellationToken ct)
     {
         var chunks = new List<ExtractedChunk>();
-        using var document = PdfDocument.Open(path);
-        foreach (var page in document.GetPages())
-        {
-            var text = NormalizeWhitespace(page.Text);
-            if (string.IsNullOrWhiteSpace(text))
-                continue;
+        var scannedPages = new List<int>();
 
-            var parts = SplitText(text, MaxChunkChars, ChunkOverlapChars);
-            for (var i = 0; i < parts.Count; i++)
+        using (var document = PdfDocument.Open(path))
+        {
+            foreach (var page in document.GetPages())
             {
-                var locator = parts.Count == 1
-                    ? $"page {page.Number}"
-                    : $"page {page.Number} (part {i + 1})";
-                chunks.Add(new ExtractedChunk(locator, parts[i]));
+                var text = NormalizeText(ExtractPdfPageText(page));
+                if (text.Length >= MinNativePdfPageChars)
+                {
+                    AddSplitChunks(chunks, $"page {page.Number}", text);
+                }
+                else
+                {
+                    scannedPages.Add(page.Number);
+                }
             }
         }
+
+        if (scannedPages.Count > 0 && visionOcr is { IsConfigured: true })
+        {
+            foreach (var pageNumber in scannedPages)
+            {
+                ct.ThrowIfCancellationRequested();
+                var pngBytes = await RenderPdfPageToPngAsync(path, pageNumber, ct);
+                if (pngBytes is null || pngBytes.Length == 0)
+                    continue;
+
+                var ocrText = NormalizeText(await visionOcr.ExtractTextFromImageAsync(pngBytes, "image/png", ct));
+                if (!string.IsNullOrWhiteSpace(ocrText))
+                    AddSplitChunks(chunks, $"page {pageNumber} (vision OCR)", ocrText);
+            }
+        }
+
         return chunks;
+    }
+
+    private static string ExtractPdfPageText(Page page)
+    {
+        var words = page.GetWords()
+            .Where(w => !string.IsNullOrWhiteSpace(w.Text))
+            .ToList();
+
+        if (words.Count == 0)
+            return page.Text ?? string.Empty;
+
+        // PDF coordinates have Y=0 at the bottom of the page: sort top-to-bottom, then left-to-right.
+        var ordered = words
+            .OrderByDescending(w => w.BoundingBox.Bottom)
+            .ThenBy(w => w.BoundingBox.Left)
+            .ToList();
+
+        var lines = new List<List<Word>>();
+        foreach (var word in ordered)
+        {
+            var baseline = word.BoundingBox.Bottom;
+            var tolerance = Math.Max(3.5, word.BoundingBox.Height * 0.55);
+            var line = lines.FirstOrDefault(l => Math.Abs(l[0].BoundingBox.Bottom - baseline) <= tolerance);
+            if (line is null)
+                lines.Add([word]);
+            else
+                line.Add(word);
+        }
+
+        var sb = new StringBuilder();
+        foreach (var line in lines.OrderByDescending(l => l.Average(w => w.BoundingBox.Bottom)))
+        {
+            line.Sort((a, b) => a.BoundingBox.Left.CompareTo(b.BoundingBox.Left));
+            for (var i = 0; i < line.Count; i++)
+            {
+                if (i > 0)
+                {
+                    var gap = line[i].BoundingBox.Left - line[i - 1].BoundingBox.Right;
+                    sb.Append(gap > 18 ? " | " : " ");
+                }
+                sb.Append(line[i].Text);
+            }
+            sb.AppendLine();
+        }
+
+        return sb.ToString();
+    }
+
+    private static async Task<List<ExtractedChunk>> ExtractImageAsync(
+        string path,
+        string mediaType,
+        SpurVisionOcrClient? visionOcr,
+        CancellationToken ct)
+    {
+        var chunks = new List<ExtractedChunk>();
+        if (visionOcr is not { IsConfigured: true })
+            return chunks;
+
+        var bytes = await File.ReadAllBytesAsync(path, ct);
+        var ocrText = NormalizeText(await visionOcr.ExtractTextFromImageAsync(bytes, mediaType, ct));
+        if (!string.IsNullOrWhiteSpace(ocrText))
+            AddSplitChunks(chunks, "image (vision OCR)", ocrText);
+
+        return chunks;
+    }
+
+    private static async Task<byte[]?> RenderPdfPageToPngAsync(string pdfPath, int pageNumber, CancellationToken ct)
+    {
+        var prefix = Path.Combine(Path.GetTempPath(), $"spurs-ocr-{Guid.NewGuid():N}");
+        var pngPath = prefix + ".png";
+        try
+        {
+            var psi = new ProcessStartInfo("pdftoppm")
+            {
+                RedirectStandardError = true,
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            psi.ArgumentList.Add("-png");
+            psi.ArgumentList.Add("-r");
+            psi.ArgumentList.Add("150");
+            psi.ArgumentList.Add("-f");
+            psi.ArgumentList.Add(pageNumber.ToString());
+            psi.ArgumentList.Add("-l");
+            psi.ArgumentList.Add(pageNumber.ToString());
+            psi.ArgumentList.Add("-singlefile");
+            psi.ArgumentList.Add(pdfPath);
+            psi.ArgumentList.Add(prefix);
+
+            using var process = Process.Start(psi);
+            if (process is null)
+                return null;
+
+            await process.WaitForExitAsync(ct);
+            if (process.ExitCode != 0 || !File.Exists(pngPath))
+                return null;
+
+            return await File.ReadAllBytesAsync(pngPath, ct);
+        }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or FileNotFoundException)
+        {
+            return null;
+        }
+        finally
+        {
+            if (File.Exists(pngPath))
+                File.Delete(pngPath);
+        }
+    }
+
+    private static void AddSplitChunks(List<ExtractedChunk> target, string baseLocator, string text)
+    {
+        var parts = SplitText(text, MaxChunkChars, ChunkOverlapChars);
+        for (var i = 0; i < parts.Count; i++)
+        {
+            var locator = parts.Count == 1
+                ? baseLocator
+                : $"{baseLocator} (part {i + 1})";
+            target.Add(new ExtractedChunk(locator, parts[i]));
+        }
     }
 
     private static List<ExtractedChunk> ExtractCsv(string path)
@@ -217,16 +366,41 @@ public static class DocumentTextExtractor
         return raw;
     }
 
-    private static string NormalizeWhitespace(string input)
+    private static string NormalizeText(string input)
     {
         if (string.IsNullOrWhiteSpace(input)) return string.Empty;
+        var lines = input.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
         var sb = new StringBuilder(input.Length);
+        var blankStreak = 0;
+
+        foreach (var rawLine in lines)
+        {
+            var cleaned = CollapseHorizontalWhitespace(rawLine);
+            if (cleaned.Length == 0)
+            {
+                blankStreak++;
+                if (sb.Length > 0 && blankStreak == 1)
+                    sb.Append('\n');
+                continue;
+            }
+            blankStreak = 0;
+            if (sb.Length > 0)
+                sb.Append('\n');
+            sb.Append(cleaned);
+        }
+
+        return sb.ToString().Trim();
+    }
+
+    private static string CollapseHorizontalWhitespace(string line)
+    {
+        var sb = new StringBuilder(line.Length);
         var prevSpace = false;
-        foreach (var ch in input)
+        foreach (var ch in line)
         {
             if (char.IsWhiteSpace(ch))
             {
-                if (!prevSpace)
+                if (!prevSpace && sb.Length > 0)
                 {
                     sb.Append(' ');
                     prevSpace = true;

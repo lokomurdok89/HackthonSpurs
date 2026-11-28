@@ -13,19 +13,27 @@ var root = builder.Configuration["Storage:Root"];
 if (maxBytes is <= 0 or > 1024L * 1024 * 1024 || string.IsNullOrWhiteSpace(root) || !Path.IsPathFullyQualified(root))
     throw new InvalidOperationException("Provide an absolute Storage:Root and a valid Storage:MaxFileBytes (1 byte to 1 GiB).");
 
+var spurBaseUrl = builder.Configuration["Spur:BaseUrl"] ?? "https://ai.spuric.com/v1";
 var spurSettings = new SpurEmbeddingSettings(
-    builder.Configuration["Spur:BaseUrl"] ?? "https://ai.spuric.com/v1",
+    spurBaseUrl,
     builder.Configuration["Spur:ApiKey"] ?? "",
     builder.Configuration["Spur:EmbedModel"] ?? "bge-m3");
+var visionBaseUrl = builder.Configuration["Spur:VisionBaseUrl"];
+var visionSettings = new SpurVisionSettings(
+    string.IsNullOrWhiteSpace(visionBaseUrl) ? spurBaseUrl : visionBaseUrl,
+    builder.Configuration["Spur:VisionApiKey"] ?? "",
+    builder.Configuration["Spur:VisionModel"] ?? "");
 
 builder.WebHost.ConfigureKestrel(k => k.Limits.MaxRequestBodySize = maxBytes + 65536); // includes multipart framing
 builder.Services.AddDbContext<DocumentsDb>(options => options.UseNpgsql(connection, o => o.UseVector()));
 builder.Services.AddSingleton(new StorageSettings(root, maxBytes));
 builder.Services.AddSingleton(spurSettings);
+builder.Services.AddSingleton(visionSettings);
 builder.Services.AddSingleton<OriginalStore>();
 builder.Services.AddSingleton<EmbeddingWorkQueue>();
 builder.Services.AddScoped<Ingestion>();
 builder.Services.AddHttpClient<SpurEmbeddingClient>(client => client.Timeout = TimeSpan.FromSeconds(30));
+builder.Services.AddHttpClient<SpurVisionOcrClient>(client => client.Timeout = TimeSpan.FromSeconds(90));
 builder.Services.AddScoped<DocumentSearchService>();
 builder.Services.AddHostedService<DocumentEmbeddingWorker>();
 
@@ -50,6 +58,7 @@ documents.MapPost("", UploadEndpoint.Handle);
 documents.MapGet("/{id}", DocumentQueries.Status);
 documents.MapGet("/{id}/result", DocumentQueries.Result);
 documents.MapPost("/{id}/index", SearchEndpoints.Index);
+documents.MapGet("/{id}/chunks", SearchEndpoints.Chunks);
 
 var search = app.MapGroup("/api/search");
 search.MapPost("", SearchEndpoints.Search);
