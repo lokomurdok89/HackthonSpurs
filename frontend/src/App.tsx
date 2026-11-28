@@ -43,6 +43,8 @@ export default function App() {
         <ProductEvidence product={demo.product} />
       ) : route === "review" ? (
         <ReviewQueue items={demo.review} />
+      ) : route === "documents" ? (
+        <DocumentsSearch />
       ) : (
         <>
           <h1 style={{ margin: "0 0 8px", fontSize: 26 }}>{label}</h1>

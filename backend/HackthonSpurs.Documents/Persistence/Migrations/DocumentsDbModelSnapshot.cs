@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
+using Pgvector;
 
 #nullable disable
 
@@ -20,7 +21,53 @@ namespace HackthonSpurs.Documents.Persistence.Migrations
                 .HasAnnotation("ProductVersion", "10.0.15")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
+            NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "vector");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+
+            modelBuilder.Entity("HackthonSpurs.Documents.Persistence.DocumentChunk", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("ChunkIndex")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Vector>("Embedding")
+                        .IsRequired()
+                        .HasColumnType("vector");
+
+                    b.Property<string>("Locator")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Model")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("SourceName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DocumentId", "ChunkIndex")
+                        .IsUnique()
+                        .HasDatabaseName("ux_document_chunk");
+
+                    b.ToTable("document_chunks", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_chunk_index", "\"ChunkIndex\" >= 0");
+                        });
+                });
 
             modelBuilder.Entity("HackthonSpurs.Documents.Persistence.DocumentJob", b =>
                 {
@@ -83,6 +130,15 @@ namespace HackthonSpurs.Documents.Persistence.Migrations
 
                             t.HasCheckConstraint("ck_state", "\"State\" IN ('Queued','Processing','Completed','Failed')");
                         });
+                });
+
+            modelBuilder.Entity("HackthonSpurs.Documents.Persistence.DocumentChunk", b =>
+                {
+                    b.HasOne("HackthonSpurs.Documents.Persistence.DocumentJob", null)
+                        .WithMany()
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 #pragma warning restore 612, 618
         }

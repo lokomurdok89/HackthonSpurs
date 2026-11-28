@@ -1,3 +1,4 @@
+using HackthonSpurs.Documents.Embeddings;
 using HackthonSpurs.Documents.Persistence;
 using HackthonSpurs.Documents.Storage;
 using Microsoft.AspNetCore.WebUtilities;
@@ -7,7 +8,13 @@ namespace HackthonSpurs.Api;
 
 internal static class UploadEndpoint
 {
-    public static async Task<IResult> Handle(HttpRequest request, OriginalStore store, Ingestion ingestion, CancellationToken ct)
+    public static async Task<IResult> Handle(
+        HttpRequest request,
+        OriginalStore store,
+        Ingestion ingestion,
+        EmbeddingWorkQueue embeddingQueue,
+        SpurEmbeddingSettings spurSettings,
+        CancellationToken ct)
     {
         if (!Guid.TryParseExact(request.Headers["Idempotency-Key"], "D", out var key)) return ApiProblems.Invalid();
         if (!MediaTypeHeaderValue.TryParse(request.ContentType, out var type) ||
@@ -24,11 +31,15 @@ internal static class UploadEndpoint
             var part = await ReadPartAsync(reader, ct);
             if (part?.GetContentDispositionHeader() is not { } disp || !disp.IsFileDisposition() ||
                 HeaderUtilities.RemoveQuotes(disp.Name).Value != "file") return ApiProblems.Invalid();
+            var rawFilename = HeaderUtilities.RemoveQuotes(disp.FileNameStar.HasValue ? disp.FileNameStar : disp.FileName).Value;
+            var displayName = string.IsNullOrWhiteSpace(rawFilename) ? null : Path.GetFileName(rawFilename);
             var declared = part.ContentType is null ? "application/octet-stream" :
                 MediaTypeHeaderValue.TryParse(part.ContentType, out var media) ? media.MediaType.Value!.ToLowerInvariant() : "";
             file = await store.StageAsync(part.Body, ct);
             if (file.Length == 0 || await ReadPartAsync(reader, ct) is not null) return ApiProblems.Invalid();
             var receipt = await ingestion.AcceptAsync(key, file, declared, ct);
+            if (receipt.Outcome == Admission.Accepted && spurSettings.IsConfigured)
+                embeddingQueue.Enqueue(receipt.Id, displayName);
             return receipt.Outcome switch
             {
                 Admission.Accepted => Results.Accepted($"/api/documents/{receipt.Id:D}", new { id = receipt.Id }),

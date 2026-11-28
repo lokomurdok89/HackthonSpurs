@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:18.4-alpine3.23
+    image: pgvector/pgvector:pg18
     environment:
       POSTGRES_DB: documents
       POSTGRES_USER: documents
@@ -21,6 +21,9 @@ services:
       PGPASSWORD: ${POSTGRES_PASSWORD:?Set a local database password}
       Storage__Root: /data/originals
       Storage__MaxFileBytes: ${UPLOAD_MAX_BYTES:-20971520}
+      Spur__BaseUrl: ${SPUR_BASE_URL:-https://ai.spuric.com/v1}
+      Spur__ApiKey: ${SPUR_API_KEY:-}
+      Spur__EmbedModel: ${SPUR_EMBED_MODEL:-bge-m3}
     ports:
       - "127.0.0.1:${API_PORT:-5080}:8080"
     volumes:
