@@ -5,11 +5,14 @@ import { allNav } from "./components/nav";
 import { PassportView } from "./components/PassportView";
 import { useDemoData } from "./data";
 import { sampleData } from "./data/sample";
+import { setActor } from "./data/settings";
+import { BuyerAccess } from "./pages/BuyerAccess";
 import { Documents } from "./pages/Documents";
 import { DocumentsSearch } from "./pages/DocumentsSearch";
 import { Passports } from "./pages/Passports";
 import { ProductEvidence } from "./pages/ProductEvidence";
 import { ReviewQueue } from "./pages/ReviewQueue";
+import { Settings } from "./pages/Settings";
 import { Users } from "./pages/Users";
 import type { WorkspaceRoute } from "./WorkspaceGate";
 
@@ -30,6 +33,7 @@ export function Workspace({ route, user, accountChanged, onSignOut, signingOut, 
   const reviewCount = demo.review.reduce((n, item) => n + item.fields.length, 0);
   const canManage = user.role === "admin";
 
+  useEffect(() => setActor(user.displayName), [user.displayName]);
   useEffect(() => { document.title = `${label} · Origin Vault`; }, [label]);
 
   return (
@@ -51,6 +55,11 @@ export function Workspace({ route, user, accountChanged, onSignOut, signingOut, 
           <p className="notice">Synthetic passport preview. No upload or private workspace data is shared.</p>
           {canManage ? <Passports passport={sampleData.passport} /> : <PassportView passport={sampleData.passport} />}
         </>
+      ) : id === "access" ? (
+        canManage ? <BuyerAccess passport={sampleData.passport} />
+          : <p role="alert">Only administrators can manage buyer access.</p>
+      ) : id === "settings" ? (
+        <Settings passport={sampleData.passport} canManage={canManage} />
       ) : id === "users" ? (
         canManage ? <Users currentUser={user} onAccountChanged={accountChanged} />
           : <p role="alert">Only administrators can manage users.</p>

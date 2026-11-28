@@ -1,4 +1,6 @@
 import { useMemo, useState } from "react";
+import { publicPassportUrl } from "../data/passportUrl";
+import { logActivity, useSettings } from "../data/settings";
 import { QRCodeSVG } from "qrcode.react";
 import type { Passport, PassportField } from "../data/types";
 import { PassportView } from "../components/PassportView";
@@ -19,18 +21,18 @@ const STATUS_TEXT: Record<PassportField["status"], string> = {
   flagged: "Needs correction",
 };
 
-/** Build a synthetic preview link with the product ID, selected field indexes and lot visibility. */
-function publicPassportUrl(productId: string, sharedIdx: number[], lots: boolean) {
-  const q = new URLSearchParams({ share: sharedIdx.join(","), lots: lots ? "1" : "0" });
-  return `${window.location.origin}${window.location.pathname}#/p/${encodeURIComponent(productId)}?${q}`;
-}
-
 /** Preview the supplied synthetic passport and select which allowed fields appear in the QR link. */
 export function Passports({ passport }: { passport: Passport }) {
+  const { defaultShared, defaultShowLots } = useSettings();
   const [shared, setShared] = useState<Set<string>>(
-    () => new Set(passport.fields.filter((f) => shareable(f)).map((f) => f.label)),
+    () =>
+      new Set(
+        passport.fields
+          .filter((f) => shareable(f) && (defaultShared === null || defaultShared.includes(f.label)))
+          .map((f) => f.label),
+      ),
   );
-  const [showLots, setShowLots] = useState(true);
+  const [showLots, setShowLots] = useState(defaultShowLots);
   const [copied, setCopied] = useState(false);
 
   const counts = useMemo(() => {
@@ -55,6 +57,7 @@ export function Passports({ passport }: { passport: Passport }) {
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(url);
+      logActivity("Copied passport link", `${passport.productId}, ${sharedIdx.length} fields shared`);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {

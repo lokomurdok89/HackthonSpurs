@@ -1,0 +1,187 @@
+.st {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.st__head {
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+.st__head h1 {
+  margin: 0 0 4px;
+  font-size: 32px;
+}
+.st__head p {
+  margin: 0;
+}
+
+/* ---------- tabs ---------- */
+.st__tabs {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--line);
+}
+.st__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 14px;
+  font: inherit;
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+}
+.st__tab[aria-selected="true"] {
+  color: var(--ink);
+  border-bottom-color: var(--accent);
+}
+.st__tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.st__count {
+  font-size: 12px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+/* ---------- record rows ---------- */
+.st__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  gap: 12px 32px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--line);
+}
+.st__row:last-child {
+  border-bottom: 0;
+}
+.st__row-text p {
+  margin: 4px 0 0;
+  max-width: 52ch;
+}
+.st__radios {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.st__radios label,
+.st__check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+.st__radios input,
+.st__check input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+.st__checks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.st__select {
+  min-height: 36px;
+  padding: 0 10px;
+  font: inherit;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+/* ---------- activity log ---------- */
+.st__bar {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.st__log {
+  width: 100%;
+  border-collapse: collapse;
+}
+.st__log th {
+  text-align: left;
+  font-size: 13px;
+  padding: 8px 16px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+.st__log td {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+.st__log tr:last-child td {
+  border-bottom: 0;
+}
+.st__time {
+  white-space: nowrap;
+  color: var(--muted);
+}
+.st__detail {
+  overflow-wrap: anywhere;
+}
+.st__empty {
+  padding: 32px 20px;
+}
+.st__empty p {
+  margin: 4px 0 0;
+}
+
+@media (max-width: 760px) {
+  .st__tabs {
+    gap: 0;
+  }
+  .st__tab {
+    padding: 0 10px;
+    gap: 6px;
+  }
+  .st__head h1 {
+    font-size: 26px;
+  }
+  .st__row {
+    grid-template-columns: 1fr;
+  }
+  .st__log thead {
+    display: none;
+  }
+  .st__log tr {
+    display: block;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  .st__log td {
+    display: block;
+    padding: 0;
+    border: 0;
+  }
+  .st__log td[data-label="Who"] {
+    display: none;
+  }
+}
+.st__radios label:has(.st__opt-help) {
+  align-items: flex-start;
+}
+.st__opt-help {
+  display: block;
+}
