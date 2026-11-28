@@ -13,6 +13,9 @@ foreach ($file in $files) {
         continue
     }
     $tree = [Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree]::ParseText([IO.File]::ReadAllText($path))
+    # Backend projects have a role directory; test harnesses live directly under tests/.
+    $projectDepth = if ($file.StartsWith('backend/')) { 2 } else { 1 }
+    $project = (($file -split '/')[0..$projectDepth] -join '/')
     $nodes = @($tree.GetRoot().DescendantNodes())
     if ($file.StartsWith('backend/')) {
         $types = @($nodes | Where-Object {
@@ -27,14 +30,14 @@ foreach ($file in $files) {
                 throw "Expected an I-prefixed type in its own feature/Contracts/$name.cs: ${file}."
             }
         }
-        if ($file.StartsWith('backend/HackthonSpurs.Application/')) {
+        if ($file.StartsWith('backend/Core/HackthonSpurs.Application/')) {
             $top = @($types | Where-Object { $_.Parent -is [Microsoft.CodeAnalysis.CSharp.Syntax.BaseNamespaceDeclarationSyntax] })
             if (!$types.Count -and $file.Split('/')[-1] -cin @('GlobalUsings.cs', 'AssemblyInfo.cs')) { continue }
             if ($top.Count -ne 1 -or $file.Split('/')[-1] -cne ($top[0].Identifier.ValueText + '.cs')) {
                 throw "Expected one application type per file named after its declaration: ${file}."
             }
-            $area = $file.Split('/')[2]
-            if ($ports.Count -and $file -cne "backend/HackthonSpurs.Application/$area/Contracts/$name.cs") {
+            $area = $file.Split('/')[3]
+            if ($ports.Count -and $file -cne "backend/Core/HackthonSpurs.Application/$area/Contracts/$name.cs") {
                 throw "Keep application interfaces directly in their owning feature's Contracts folder: $file."
             }
             if ($top[0].Parent.Name.ToString() -cne "HackthonSpurs.Application.$area") {
@@ -55,8 +58,8 @@ foreach ($file in $files) {
                 $scope = $parent.Identifier.ValueText + '`' + $parent.Arity + '+' + $scope
             }
         }
-        # Each .NET project lives under backend/ or tests/; sum all partial declarations.
-        $key = (($file -split '/')[0..1] -join '/') + ':' + $scope
+        # Aggregate partial declarations within the same physical project.
+        $key = $project + ':' + $scope
         $span = $type.GetLocation().GetLineSpan()
         $sizes[$key] += $span.EndLinePosition.Line - $span.StartLinePosition.Line + 1
     }

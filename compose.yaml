@@ -17,7 +17,7 @@ services:
   api:
     build:
       context: .
-      dockerfile: backend/HackthonSpurs.Api/Dockerfile
+      dockerfile: backend/Hosts/HackthonSpurs.Api/Dockerfile
     environment:
       ConnectionStrings__Documents: "Host=postgres;Database=documents;Username=documents;Timeout=5;Command Timeout=10"
       PGPASSWORD: ${POSTGRES_PASSWORD:?Set a local database password}
@@ -39,7 +39,7 @@ services:
     profiles: [synthetic]
     build:
       context: .
-      dockerfile: backend/HackthonSpurs.Worker/Dockerfile
+      dockerfile: backend/Hosts/HackthonSpurs.Worker/Dockerfile
     environment:
       ConnectionStrings__Documents: "Host=postgres;Database=documents;Username=documents;Timeout=5;Command Timeout=10"
       PGPASSWORD: ${POSTGRES_PASSWORD:?Set a local database password}
@@ -56,7 +56,7 @@ services:
     profiles: [synthetic]
     build:
       context: .
-      dockerfile: backend/HackthonSpurs.Reader.Fixture/Dockerfile
+      dockerfile: backend/Testing/HackthonSpurs.Reader.Fixture/Dockerfile
     read_only: true
     tmpfs:
       - /tmp

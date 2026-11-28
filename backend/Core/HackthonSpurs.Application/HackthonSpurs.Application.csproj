@@ -6,6 +6,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../HackthonSpurs.Domain/HackthonSpurs.Domain.csproj" />
-    <ProjectReference Include="../HackthonSpurs.Resources/HackthonSpurs.Resources.csproj" />
+    <ProjectReference Include="../../Shared/HackthonSpurs.Resources/HackthonSpurs.Resources.csproj" />
   </ItemGroup>
 </Project>

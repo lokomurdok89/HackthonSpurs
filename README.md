@@ -30,7 +30,7 @@ npm --prefix frontend ci
 npm --prefix frontend run dev:api
 ```
 
-In **Documents**, check the **Local API** label and upload the [exact demo CSV](backend/HackthonSpurs.Reader.Fixture/worker-demo.csv) from disk. Do not recreate or resave it: its bytes are allowlisted by SHA-256. Follow the receipt until **Completed · Attempt 1** (the short Processing state may be missed). Expect **synthetic-fixture/1**, **Row 2, column 1**, and **DEMO-ONLY-014**. Reload the receipt to read the same persisted result. A modified copy or any other file stays queued. No result seeding, document comparison or OCR is involved.
+In **Documents**, check the **Local API** label and upload the [exact demo CSV](backend/Testing/HackthonSpurs.Reader.Fixture/worker-demo.csv) from disk. Do not recreate or resave it: its bytes are allowlisted by SHA-256. Follow the receipt until **Completed · Attempt 1** (the short Processing state may be missed). Expect **synthetic-fixture/1**, **Row 2, column 1**, and **DEMO-ONLY-014**. Reload the receipt to read the same persisted result. A modified copy or any other file stays queued. No result seeding, document comparison or OCR is involved.
 
 Stop this profile with `docker compose --profile synthetic down` (no `-v`); the demo job and result survive. The profile also picks up previously queued copies of the exact fixture. No provider endpoint, key or challenge data is needed. See the [internal contract and recovery notes](docs/reader-fixture.md).
 
@@ -44,7 +44,7 @@ $credential = Get-Credential -Message 'Local Origin Vault administrator'
 $headers = @{ 'X-Workspace-Request' = '1' }
 $null = Invoke-RestMethod "$api/api/auth/login" -Method Post -ContentType application/json -Headers $headers -SessionVariable workspace -Body (@{ username = $credential.UserName; password = $credential.GetNetworkCredential().Password } | ConvertTo-Json -Compress)
 $headers['Idempotency-Key'] = [guid]::NewGuid().ToString()
-$receipt = Invoke-RestMethod "$api/api/documents" -Method Post -Headers $headers -WebSession $workspace -Form @{ file = Get-Item './backend/HackthonSpurs.Reader.Fixture/worker-demo.csv' }
+$receipt = Invoke-RestMethod "$api/api/documents" -Method Post -Headers $headers -WebSession $workspace -Form @{ file = Get-Item './backend/Testing/HackthonSpurs.Reader.Fixture/worker-demo.csv' }
 Invoke-RestMethod "$api/api/documents/$($receipt.id)" -WebSession $workspace
 Invoke-RestMethod "$api/api/auth/logout" -Method Post -Headers $headers -WebSession $workspace
 ```
@@ -83,4 +83,4 @@ python -B tests/integration/test_semantic_index.py
 
 The build requires the .NET 10 SDK; PowerShell 7.6 runs the offline contract checks. The semantic browser suite additionally requires the [frontend and Playwright setup](frontend/README.md#checks). The integration suite requires Python 3, Docker and Compose; it builds a private, randomly named project on an ephemeral loopback port, creates its own secret and removes **only that project's** test containers, volumes and image afterwards. It checks real multipart requests, idempotency races, input limits, persisted results/terminal errors, restart durability and a database outage. No external OCR or production credentials are used. If a subnet override is needed for tests, set `COMPOSE_FILE` to both Compose filenames using the platform separator and choose an unused `SPURS_SUBNET`.
 
-For schema work, use the EF CLI on the same major version as the backend (.NET 10). With the API's native development settings supplied, run `dotnet ef migrations has-pending-model-changes --project HackthonSpurs.Persistence --startup-project HackthonSpurs.Api` from `backend/`. Only the API owns migrations. The runtime dependency is the Npgsql EF Core provider; EF design tooling is private to the build/authoring workflow.
+For schema work, use the EF CLI on the same major version as the backend (.NET 10). With the API's native development settings supplied, run `dotnet ef migrations has-pending-model-changes --project Adapters/HackthonSpurs.Persistence --startup-project Hosts/HackthonSpurs.Api` from `backend/`. Only the API owns migrations. The runtime dependency is the Npgsql EF Core provider; EF design tooling is private to the build/authoring workflow.

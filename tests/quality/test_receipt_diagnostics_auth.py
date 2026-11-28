@@ -46,7 +46,7 @@ class ReceiptDiagnosticsAuth(LoopbackReceiptFixture):
         schemas = spec["components"]["schemas"]
         self.assertEqual(READING_STATES, set(schemas["DocumentStatus"]["properties"]["state"]["enum"]))
         self.assertEqual(INDEX_STATES, set(schemas["DocumentIndexStatus"]["properties"]["state"]["enum"]))
-        catalog_file = ROOT / "backend/HackthonSpurs.Resources/backend-resources.json"
+        catalog_file = ROOT / "backend/Shared/HackthonSpurs.Resources/backend-resources.json"
         catalog = json.loads(catalog_file.read_text(encoding="utf-8"))
         wire = catalog["Wire"]
         self.assertEqual(COOKIE_NAME, wire["WorkspaceCookie"])

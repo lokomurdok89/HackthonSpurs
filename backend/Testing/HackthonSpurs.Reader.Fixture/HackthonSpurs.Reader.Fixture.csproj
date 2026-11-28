@@ -4,6 +4,6 @@
   </PropertyGroup>
   <ItemGroup><EmbeddedResource Include="worker-demo.csv" LogicalName="worker-demo.csv" /></ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="../HackthonSpurs.Resources/HackthonSpurs.Resources.csproj" />
+    <ProjectReference Include="../../Shared/HackthonSpurs.Resources/HackthonSpurs.Resources.csproj" />
   </ItemGroup>
 </Project>

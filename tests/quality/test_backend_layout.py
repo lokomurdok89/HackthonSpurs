@@ -26,6 +26,11 @@ class BackendBoundaries(unittest.TestCase):
         cls.projects = {p.resolve() for p in BACKEND.rglob("*.csproj")
                         if not {"obj", "bin"}.intersection(p.relative_to(BACKEND).parts)}
 
+    def project_dir(self, suffix):
+        """Find the directory of the unique backend project identified by suffix."""
+        path, = (p.parent for p in self.projects if p.stem == PREFIX + suffix)
+        return path
+
     def test_solution_naming_and_ownership(self):
         """Require a consistent project/folder name and actual membership in the backend solution."""
         sln = ElementTree.parse(BACKEND / "HackthonSpurs.slnx")
@@ -37,7 +42,7 @@ class BackendBoundaries(unittest.TestCase):
             self.assertEqual(proj.parent.name, proj.stem)
 
     def test_solution_groups_reflect_project_roles(self):
-        """Ensure the virtual groups organize all twelve existing projects without silently dropping a harness."""
+        """Match physical backend groups to solution folders without moving the repository-level test harnesses."""
         groups = {
             "Core": {"HackthonSpurs.Domain", "HackthonSpurs.Application"},
             "Hosts": {"HackthonSpurs.Api", "HackthonSpurs.Worker"},
@@ -55,10 +60,14 @@ class BackendBoundaries(unittest.TestCase):
             with self.subTest(group=name):
                 projects = [Path(node.attrib["Path"]).stem for node in folder.findall("Project")]
                 self.assertCountEqual(projects, groups[name])
+                for node in folder.findall("Project"):
+                    path = Path(node.attrib["Path"])
+                    if path.parts[0] != "..":
+                        self.assertEqual(path.parent.parent, Path(name), f"Wrong physical group: {path}")
 
     def test_persistence_project_preserves_ef_identity(self):
         """Keep migration discovery compatible while the project and its database folders use the new name."""
-        project = BACKEND / (PREFIX + "Persistence")
+        project = self.project_dir("Persistence")
         xml = ElementTree.parse(project / (project.name + ".csproj"))
         self.assertEqual(xml.findtext(".//AssemblyName"), PREFIX + "Documents")
         self.assertEqual(xml.findtext(".//RootNamespace"), PREFIX + "Documents.Persistence")
@@ -68,7 +77,7 @@ class BackendBoundaries(unittest.TestCase):
     def test_host_and_persistence_roots_are_not_feature_folders(self):
         """Keep endpoint, queue and entity implementations out of the multi-feature project roots."""
         for suffix in ("Api", "Persistence", "Worker", "Reader.Spur", "Application", "Domain"):
-            project = BACKEND / (PREFIX + suffix)
+            project = self.project_dir(suffix)
             startup_files = {"GlobalUsings.cs", "AssemblyInfo.cs"}
             if suffix in ("Api", "Worker", "Reader.Spur"):
                 startup_files.add("Program.cs")
@@ -78,7 +87,7 @@ class BackendBoundaries(unittest.TestCase):
     def test_inner_projects_have_no_framework_or_provider_dependencies(self):
         """Domain, use cases and the shared vocabulary build without any persistence, network or host packages."""
         for suffix in ("Domain", "Application", "Resources"):
-            project = BACKEND / (PREFIX + suffix) / (PREFIX + suffix + ".csproj")
+            project = self.project_dir(suffix) / (PREFIX + suffix + ".csproj")
             xml = ElementTree.parse(project)
             with self.subTest(layer=suffix):
                 self.assertEqual(xml.getroot().get("Sdk"), "Microsoft.NET.Sdk")
@@ -93,7 +102,7 @@ class BackendBoundaries(unittest.TestCase):
         tree = ElementTree.parse(harness)
         targets = {(harness.parent / node.attrib["Include"].replace(chr(92), "/")).resolve()
                    for node in tree.iter("ProjectReference")}
-        application = BACKEND / (PREFIX + "Application") / (PREFIX + "Application.csproj")
+        application = self.project_dir("Application") / (PREFIX + "Application.csproj")
         self.assertEqual(targets, {application})
         for tag in ("PackageReference", "FrameworkReference", "Reference"):
             self.assertFalse(list(tree.iter(tag)), f"The pure harness must not acquire {tag}")
@@ -103,7 +112,7 @@ class BackendBoundaries(unittest.TestCase):
         forbidden = (r"\b(?:HttpClient|HttpRequestMessage|HttpResponseMessage|SocketsHttpHandler|"
                      r"TcpClient|FileStream|FileInfo|DirectoryInfo)\b|\b(?:File|Directory)\.\w+\(")
         for layer in ("Domain", "Application"):
-            for path in (BACKEND / (PREFIX + layer)).rglob("*.cs"):
+            for path in (self.project_dir(layer)).rglob("*.cs"):
                 if {"obj", "bin"}.intersection(path.relative_to(BACKEND).parts):
                     continue
                 source = path.read_text(encoding="utf-8")
@@ -112,7 +121,7 @@ class BackendBoundaries(unittest.TestCase):
 
     def test_document_endpoints_do_not_bind_infrastructure(self):
         """Catch coupling that a project-level check cannot: the API also contains the composition root."""
-        endpoints = BACKEND / "HackthonSpurs.Api" / "Endpoints"
+        endpoints = self.project_dir("Api") / "Endpoints"
         for path in [*endpoints.joinpath("Documents").glob("**/*.cs"), *endpoints.joinpath("Search").glob("**/*.cs")]:
             text = path.read_text(encoding="utf-8")
             code = "\n".join(line for line in text.splitlines() if not line.lstrip().startswith("//"))

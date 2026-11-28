@@ -6,6 +6,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../../backend/HackthonSpurs.Application/HackthonSpurs.Application.csproj" />
+    <ProjectReference Include="../../backend/Core/HackthonSpurs.Application/HackthonSpurs.Application.csproj" />
   </ItemGroup>
 </Project>

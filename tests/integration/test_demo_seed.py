@@ -110,7 +110,7 @@ class DemoSeedBoundaries(unittest.TestCase):
                "run", "--rm", "--no-deps", "-T", "api"]
         result = subprocess.run(cmd, cwd=api.ROOT, env=api.ENV, capture_output=True, timeout=30)
         self.assertNotEqual(result.returncode, 0)
-        catalog = api.ROOT / "backend/HackthonSpurs.Resources/backend-resources.json"
+        catalog = api.ROOT / "backend/Shared/HackthonSpurs.Resources/backend-resources.json"
         expected = json.loads(catalog.read_text(encoding="utf-8"))["ResourceText"][message_key].encode()
         self.assertTrue(expected in result.stdout + result.stderr, "API stopped without the expected seed error")
 

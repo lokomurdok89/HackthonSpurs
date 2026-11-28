@@ -2,7 +2,7 @@
 $ErrorActionPreference = 'Stop'
 python -B tools/generate_backend_resources.py --check
 if ($LASTEXITCODE) { throw 'Regenerate the backend resource projections.' }
-$catalog = Get-Content -Raw backend/HackthonSpurs.Resources/backend-resources.json | ConvertFrom-Json -AsHashtable
+$catalog = Get-Content -Raw backend/Shared/HackthonSpurs.Resources/backend-resources.json | ConvertFrom-Json -AsHashtable
 $codes = @($catalog.Errors.Values | ForEach-Object { $_.code })
 $files = @(git ls-files -co --exclude-standard -- 'backend/*.cs' | Sort-Object -Unique)
 if ($LASTEXITCODE -or !$files) { throw 'Run this check from the Git root.' }
@@ -13,7 +13,7 @@ foreach ($file in $files) {
     $root = [Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree]::ParseText([IO.File]::ReadAllText($path)).GetRoot()
     foreach ($node in $root.DescendantNodes()) {
         # The workspace role constraint is schema, including its interpolated punctuation.
-        if ($file -eq 'backend/HackthonSpurs.Persistence/Mappings/WorkspaceMappings.cs' -and
+        if ($file -eq 'backend/Adapters/HackthonSpurs.Persistence/Mappings/WorkspaceMappings.cs' -and
             ($node -is [Microsoft.CodeAnalysis.CSharp.Syntax.InterpolatedStringTextSyntax] -or
                 $node -is [Microsoft.CodeAnalysis.CSharp.Syntax.LiteralExpressionSyntax]) -and
             ($node.Ancestors() | Where-Object {
@@ -39,9 +39,9 @@ foreach ($file in $files) {
             # SQL, constraints and database identifiers are schema, not application messages or settings.
             if ($v -match '^\s*(WITH|UPDATE|DELETE|INSERT|SELECT)\s') {
                 if (!($codes | Where-Object { $v.Contains("'$_'") })) { continue }
-            } elseif ($file -eq 'backend/HackthonSpurs.Persistence/Database/WorkspaceWriteLock.cs' -and
+            } elseif ($file -eq 'backend/Adapters/HackthonSpurs.Persistence/Database/WorkspaceWriteLock.cs' -and
                 $v -ceq 'LOCK TABLE workspace_users IN SHARE ROW EXCLUSIVE MODE') { continue }
-            elseif ($file -match '^backend/HackthonSpurs\.Persistence/Mappings/(IndexMappings|DocumentMappings)\.cs$' -and
+            elseif ($file -match '^backend/Adapters/HackthonSpurs\.Persistence/Mappings/(IndexMappings|DocumentMappings)\.cs$' -and
                 ($node.Ancestors() | Where-Object {
                     $_ -is [Microsoft.CodeAnalysis.CSharp.Syntax.InvocationExpressionSyntax] -and
                     $_.Expression.ToString() -match '\.(HasCheckConstraint|HasColumnType|HasDatabaseName|HasPostgresExtension|ToTable)$'

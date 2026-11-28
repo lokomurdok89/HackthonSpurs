@@ -4,7 +4,8 @@ import json
 from pathlib import Path
 import re
 
-ROOT = Path(__file__).resolve().parents[1] / "backend" / "HackthonSpurs.Resources"
+REPO_ROOT = Path(__file__).resolve().parents[1]
+ROOT = REPO_ROOT / "backend" / "Shared" / "HackthonSpurs.Resources"
 SOURCE = ROOT / "backend-resources.json"
 TARGET = ROOT / "BackendResources.g.cs"
 
@@ -76,7 +77,7 @@ def main():
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
     catalog = json.loads(SOURCE.read_text(encoding="utf-8"), object_pairs_hook=unique)
-    web = ROOT.parents[1] / "frontend/src/api/backendMessages.generated.ts"
+    web = REPO_ROOT / "frontend/src/api/backendMessages.generated.ts"
     for path, result in [(TARGET, generate(catalog)), (web, browser_messages(catalog))]:
         if args.check:
             if not path.is_file() or path.read_text(encoding="utf-8") != result:

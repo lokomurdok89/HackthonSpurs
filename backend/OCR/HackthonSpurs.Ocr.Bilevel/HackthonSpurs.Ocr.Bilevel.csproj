@@ -5,6 +5,6 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Magick.NET-Q8-AnyCPU" Version="15.1.1" />
-    <ProjectReference Include="../HackthonSpurs.Resources/HackthonSpurs.Resources.csproj" />
+    <ProjectReference Include="../../Shared/HackthonSpurs.Resources/HackthonSpurs.Resources.csproj" />
   </ItemGroup>
 </Project>

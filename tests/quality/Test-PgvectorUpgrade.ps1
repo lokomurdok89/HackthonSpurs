@@ -1,7 +1,7 @@
 # Run from the Git root after a Release build, with EF 10 available.
 param([string] $EfTool = "dotnet-ef")
 $ErrorActionPreference = 'Stop'
-$efArgs = @('--project', 'backend/HackthonSpurs.Persistence', '--startup-project', 'backend/HackthonSpurs.Api',
+$efArgs = @('--project', 'backend/Adapters/HackthonSpurs.Persistence', '--startup-project', 'backend/Hosts/HackthonSpurs.Api',
             '--configuration', 'Release', '--no-build')
 $baseline = '20261128002954_WorkerLeases'
 $upgrade = '20261128042412_WorkspaceAccess'
