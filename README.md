@@ -5,6 +5,7 @@ Local, authenticated shared-workspace API for the Track 2 demo. It accepts PDF, 
 - [Optional isolated SPUR vision reader](docs/spur-ocr.md) — one authorized page image per request; document upload, queued reading and transcript in Documents.
 - [Optional semantic search](docs/semantic-search.md) — automatically index readable OCR transcripts, then follow ranked excerpts to their original page.
 - [Workspace roles, first administrator and evaluation walkthrough](docs/workspace-access.md)
+- [Diagnose an existing receipt with a workspace login, without resubmitting](docs/receipt-diagnostics.md)
 - [Architecture and first demo walkthrough](docs/ARCHITECTURE.md)
 - [Run the React UI against the local API](frontend/README.md)
 - [Frontend integration guide and synthetic examples](docs/api/README.md)
