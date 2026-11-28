@@ -1,0 +1,92 @@
+.cert {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.cert__bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+.cert p {
+  margin: 0;
+}
+.cert__count {
+  font-size: 16px;
+}
+.cert__progress {
+  width: 100%;
+  height: 10px;
+  accent-color: var(--ok-border);
+}
+.cert__warning {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+.cert__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--line);
+}
+.cert__item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: 10px 32px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+.cert__text,
+.cert__control {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.cert__control select,
+.cert__control textarea,
+.cert__control input {
+  min-height: 36px;
+  max-width: 100%;
+  padding: 7px 10px;
+  font: inherit;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.cert__control textarea,
+.cert__control > select {
+  width: 100%;
+}
+.cert__control textarea {
+  resize: vertical;
+}
+.cert__dates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.cert__sub {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.cert__problem {
+  color: var(--danger-fg);
+}
+[data-density="compact"] .cert__item {
+  padding: 8px 0;
+}
+@media (max-width: 760px) {
+  .cert__item {
+    grid-template-columns: 1fr;
+  }
+}

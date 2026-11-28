@@ -47,7 +47,7 @@ export function Workspace({ route, user, accountChanged, onSignOut, signingOut, 
       ) : id === "search" ? (
         <DocumentsSearch key={route.documentId} documentId={route.documentId} />
       ) : id === "products" ? (
-        <ProductEvidence product={demo.product} />
+        <ProductEvidence product={demo.product} manufacturer={demo.passport.manufacturer} canEdit={canManage} />
       ) : id === "review" ? (
         <ReviewQueue items={demo.review} canReview={canManage} />
       ) : id === "passports" ? (
