@@ -1,0 +1,72 @@
+# Public, synthetic fixture only. Never connect this project to real data or a provider.
+name: hackthonspurs-local-demo
+
+x-demo-db-password: &db-password local-fixture-database
+x-demo-storage: &storage
+  ConnectionStrings__Documents: "Host=postgres;Database=documents;Username=documents;Timeout=5;Command Timeout=10"
+  PGPASSWORD: *db-password
+  Storage__Root: /data/originals
+
+services:
+  web:
+    extends:
+      file: deploy/compose.full-services.yaml
+      service: web
+    build:
+      context: ./frontend
+    restart: "no"
+    ports: !override
+      - "127.0.0.1:${LOCAL_DEMO_PORT:-8081}:8080"
+
+  postgres:
+    build: ./backend/Infrastructure/PostgresVector
+    environment:
+      POSTGRES_DB: documents
+      POSTGRES_USER: documents
+      POSTGRES_PASSWORD: *db-password
+    volumes:
+      - demo-database:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "documents", "-d", "documents"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Hosts/HackthonSpurs.Api/Dockerfile
+    environment:
+      <<: *storage
+      Auth__DemoSeedEnabled: "true"
+      # Public local-demo labels, intentionally identical across fresh installations.
+      Auth__DemoAdminPassword: LocalDemo-Admin-2026
+      Auth__DemoReaderPassword: LocalDemo-Reader-2026
+    volumes:
+      - demo-originals:/data/originals
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Hosts/HackthonSpurs.Worker/Dockerfile
+      target: fixture
+    environment:
+      <<: *storage
+      Reader__Endpoint: http://fixture-reader:8080/internal/read
+    volumes:
+      - demo-originals:/data/originals:ro
+    depends_on: [api, fixture-reader]
+
+  fixture-reader:
+    build:
+      context: .
+      dockerfile: backend/Testing/HackthonSpurs.Reader.Fixture/Dockerfile
+    read_only: true
+    tmpfs: [/tmp]
+
+volumes:
+  demo-database:
+  demo-originals:
