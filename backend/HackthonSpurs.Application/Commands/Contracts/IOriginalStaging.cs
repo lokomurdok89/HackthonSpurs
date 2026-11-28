@@ -7,5 +7,3 @@ public interface IOriginalStaging
     /// <param name="ct">Request cancellation.</param>
     Task<IStagedOriginal> StageAsync(Stream source, CancellationToken ct);
 }
-
-public sealed class UploadTooLargeException : Exception;

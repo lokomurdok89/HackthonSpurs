@@ -13,7 +13,36 @@ foreach ($file in $files) {
         continue
     }
     $tree = [Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree]::ParseText([IO.File]::ReadAllText($path))
-    foreach ($type in $tree.GetRoot().DescendantNodes()) {
+    $nodes = @($tree.GetRoot().DescendantNodes())
+    if ($file.StartsWith('backend/')) {
+        $types = @($nodes | Where-Object {
+            $_ -is [Microsoft.CodeAnalysis.CSharp.Syntax.BaseTypeDeclarationSyntax] -or
+            $_ -is [Microsoft.CodeAnalysis.CSharp.Syntax.DelegateDeclarationSyntax]
+        })
+        $ports = @($types | Where-Object { $_ -is [Microsoft.CodeAnalysis.CSharp.Syntax.InterfaceDeclarationSyntax] })
+        if ($ports.Count) {
+            if ($ports.Count -ne 1 -or $types.Count -ne 1) { throw "Expected exactly one interface in ${file}." }
+            $name = $ports[0].Identifier.ValueText
+            if ($name -cnotmatch '^I[A-Z]' -or !$file.EndsWith("/Contracts/$name.cs", [StringComparison]::Ordinal)) {
+                throw "Expected an I-prefixed type in its own feature/Contracts/$name.cs: ${file}."
+            }
+        }
+        if ($file.StartsWith('backend/HackthonSpurs.Application/')) {
+            $top = @($types | Where-Object { $_.Parent -is [Microsoft.CodeAnalysis.CSharp.Syntax.BaseNamespaceDeclarationSyntax] })
+            if (!$types.Count -and $file.Split('/')[-1] -cin @('GlobalUsings.cs', 'AssemblyInfo.cs')) { continue }
+            if ($top.Count -ne 1 -or $file.Split('/')[-1] -cne ($top[0].Identifier.ValueText + '.cs')) {
+                throw "Expected one application type per file named after its declaration: ${file}."
+            }
+            $area = $file.Split('/')[2]
+            if ($top[0].Parent.Name.ToString() -cne "HackthonSpurs.Application.$area") {
+                throw "Keep the application type in its owning feature namespace: ${file}."
+            }
+            $isModel = $top[0] -is [Microsoft.CodeAnalysis.CSharp.Syntax.RecordDeclarationSyntax] -or
+                       $top[0] -is [Microsoft.CodeAnalysis.CSharp.Syntax.EnumDeclarationSyntax]
+            if ($isModel -ne ($file -cmatch '/Models/[^/]+$')) { throw "Place only application records/enums in feature/Models/: ${file}." }
+        }
+    }
+    foreach ($type in $nodes) {
         if ($type -isnot [Microsoft.CodeAnalysis.CSharp.Syntax.TypeDeclarationSyntax]) { continue }
         $scope = $type.Identifier.ValueText + '`' + $type.Arity
         for ($parent = $type.Parent; $null -ne $parent; $parent = $parent.Parent) {
@@ -32,4 +61,4 @@ foreach ($file in $files) {
 $over = @($sizes.GetEnumerator() | Where-Object Value -gt $limit)
 if ($over) { $over | Format-Table -AutoSize | Out-Host; throw "Exceeded $limit physical lines." }
 $sizes.GetEnumerator() | Sort-Object Value -Descending | Select-Object -First 3 | Format-Table -AutoSize
-Write-Output "PASS: $($sizes.Count) C# types and Python modules checked. Run the web lint for TypeScript."
+Write-Output "PASS: $($sizes.Count) C# types and Python modules checked; backend interface and application type layout verified. Run the web lint for TypeScript."

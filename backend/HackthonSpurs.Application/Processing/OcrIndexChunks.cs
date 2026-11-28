@@ -3,8 +3,6 @@ using System.Text.Json;
 
 namespace HackthonSpurs.Application.Processing;
 
-public sealed record OcrIndexChunk(int Page, string Text);
-
 public static class OcrIndexChunks
 {
     /// <summary>Split a validated reading into bounded excerpts without losing its original page locators.</summary>

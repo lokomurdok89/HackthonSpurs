@@ -2,20 +2,6 @@ using HackthonSpurs.Domain.Documents;
 
 namespace HackthonSpurs.Application.Commands;
 
-public enum Admission { Accepted, Conflict, Unsupported, TooLarge }
-
-/// <summary>Return an admission decision and, on acceptance, the opaque receipt ID.</summary>
-/// <param name="Outcome">Admission or replay decision.</param>
-/// <param name="Id">Accepted receipt, if any.</param>
-public readonly record struct Receipt(Admission Outcome, Guid Id = default);
-
-/// <summary>Request admission of one bounded original under an idempotency key.</summary>
-/// <param name="Key">Client operation key reused for retries.</param>
-/// <param name="Original">Staged upload, independent of how its bytes are stored.</param>
-/// <param name="DeclaredType">Media type declared by the caller.</param>
-/// <param name="Spur">Whether external image reading was explicitly requested.</param>
-public sealed record AcceptDocument(Guid Key, IStagedOriginal Original, string DeclaredType, bool Spur);
-
 /// <summary>Own validation and idempotency without depending on a filesystem or database provider.</summary>
 /// <param name="admissions">Durable acceptance store that resolves competing submissions.</param>
 public sealed class AcceptDocumentHandler(IDocumentAdmissions admissions)

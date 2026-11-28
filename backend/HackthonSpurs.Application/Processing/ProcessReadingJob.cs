@@ -2,12 +2,6 @@ using HackthonSpurs.Resources;
 
 namespace HackthonSpurs.Application.Processing;
 
-/// <summary>Provide a safe operational summary of one processed lease.</summary>
-/// <param name="Id">Opaque receipt.</param>
-/// <param name="Attempt">Number of claims made, including this one.</param>
-/// <param name="Outcome">Stable operational label or error code.</param>
-public sealed record JobAttemptReport(Guid Id, int Attempt, string Outcome);
-
 /// <summary>Execute one reading attempt without polling, hosting or storage-specific operations.</summary>
 /// <param name="jobs">Lease-aware job port for the active lane.</param>
 /// <param name="reader">Original-reading adapter for that lane.</param>

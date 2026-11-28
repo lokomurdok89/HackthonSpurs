@@ -1,7 +1,5 @@
 namespace HackthonSpurs.Application.Queries;
 
-public sealed record DocumentIndexStatusView(string State, int Attempt, int ChunkCount, string? FailureCode);
-
 public interface IDocumentReads
 {
     /// <summary>Project progress without loading originals or result JSON.</summary>
