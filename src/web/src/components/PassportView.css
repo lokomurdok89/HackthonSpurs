@@ -1,5 +1,6 @@
+/* The buyer's passport: a single printed-style sheet, ruled sections, every value with its source. */
 .pp {
-  background: var(--surface);
+  background: var(--paper);
   color: var(--ink);
   font-size: 14px;
 }
@@ -7,41 +8,40 @@
 .pp__head {
   background: var(--chrome);
   color: var(--chrome-strong);
-  padding: 24px 20px 20px;
+  padding: 22px 20px 20px;
 }
-.pp__kicker {
+.pp__brand {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.6px;
-  text-transform: uppercase;
-  color: var(--chrome-accent);
-}
-.pp__name {
-  margin: 10px 0 4px;
-  font-size: 22px;
-  line-height: 1.25;
-}
-.pp__id {
-  font-family: var(--mono);
+  gap: 8px;
   font-size: 13px;
   color: var(--chrome-text);
 }
-.pp__maker {
-  margin-top: 10px;
+.pp__brand svg {
+  color: var(--chrome-accent);
+}
+.pp__name {
+  margin: 14px 0 6px;
+  font-size: 24px;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+.pp__id {
   font-size: 13px;
   color: var(--chrome-text);
 }
 
 .pp__section {
   padding: 20px;
-  border-bottom: 1px solid var(--line);
+}
+.pp__section + .pp__section {
+  padding-top: 4px;
 }
 .pp__section h2 {
-  margin: 0 0 12px;
-  font-size: 15px;
+  margin: 0 0 10px;
+  padding-bottom: 6px;
+  font-size: 17px;
+  border-bottom: 1px solid var(--line);
 }
 .pp__empty,
 .pp__note {
@@ -49,18 +49,13 @@
   color: var(--muted);
   font-size: 13px;
 }
-.pp__note {
-  background: var(--warn-bg);
-  color: var(--warn-fg);
-  border-radius: 8px;
-  padding: 8px 10px;
-}
 
 .pp__fields {
   margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+}
+.pp__field {
+  padding: 10px 0 12px;
+  border-bottom: 1px solid var(--line);
 }
 .pp__field dt {
   font-size: 12px;
@@ -71,7 +66,7 @@
   margin: 2px 0 0;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
 }
 .pp__value {
   font-size: 15px;
@@ -84,73 +79,72 @@
 }
 .pp__status {
   align-self: flex-start;
-  font-size: 11px;
-  font-weight: 600;
-  border-radius: 999px;
-  padding: 1px 8px;
+  font-size: 10px;
 }
 .pp__status--verified {
-  background: var(--ok-bg);
   color: var(--ok-fg);
 }
 .pp__status--pending {
-  background: var(--warn-bg);
   color: var(--warn-fg);
 }
 .pp__status--flagged {
-  background: var(--danger-bg);
   color: var(--danger-fg);
 }
 .pp__status--missing {
-  background: var(--neutral-bg);
-  color: var(--neutral-fg);
+  color: var(--muted);
 }
 .pp__source {
+  display: block;
   font-family: var(--mono);
   font-size: 11px;
+  font-weight: 400;
   color: var(--muted);
   word-break: break-all;
 }
 
 .pp__lots {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
 }
-.pp__lot {
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.pp__lots th,
+.pp__lots td {
+  padding: 8px 8px 8px 0;
+  text-align: left;
+  vertical-align: top;
 }
-.pp__lot-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
+.pp__lots th:last-child,
+.pp__lots td:last-child {
+  padding-right: 0;
+}
+.pp__lots .num {
+  text-align: right;
+}
+.pp__lots thead th {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-2);
+  border-bottom: 1px solid var(--line);
+  padding-top: 0;
+  padding-bottom: 6px;
+}
+.pp__lots tbody tr + tr {
+  border-top: 1px solid var(--line);
+}
+.pp__lots tbody th {
+  font-weight: 400;
+}
+.pp__lots td {
+  font-weight: 600;
 }
 .pp__lot-id {
-  font-family: var(--mono);
+  display: block;
   font-weight: 600;
 }
 .pp__lot-form {
+  display: block;
   color: var(--muted);
-  font-size: 13px;
-}
-.pp__lot-grid {
-  margin: 0;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-}
-.pp__lot-grid dt {
-  font-size: 11px;
-  color: var(--muted);
-}
-.pp__lot-grid dd {
-  margin: 2px 0 0;
-  font-weight: 600;
+  font-size: 12px;
 }
 .pp__unknown {
   font-weight: 500;
@@ -160,7 +154,45 @@
 }
 
 .pp__foot {
-  padding: 16px 20px 24px;
+  padding: 8px 20px 24px;
   font-size: 12px;
   color: var(--muted);
+}
+
+/* ---------- plain document header (overrides) ---------- */
+.pp {
+  background: var(--surface);
+}
+.pp__head {
+  background: var(--surface);
+  color: var(--ink);
+  border-bottom: 1px solid var(--line);
+  border-top: 4px solid var(--accent);
+}
+.pp__brand {
+  color: var(--muted);
+}
+.pp__brand svg {
+  color: var(--accent-ink);
+}
+.pp__name {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.pp__id {
+  color: var(--muted);
+}
+.pp__section h2 {
+  font-size: 16px;
+}
+.pp__source {
+  font-family: var(--font);
+}
+.pp__status,
+.share__meta .pp__status,
+.ps__summary .pp__status {
+  font-size: 13px;
+  letter-spacing: 0;
+  text-transform: none;
 }

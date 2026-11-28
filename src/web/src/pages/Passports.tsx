@@ -8,8 +8,8 @@ import "./Passports.css";
 const shareable = (f: PassportField) => f.status === "verified" || f.status === "missing";
 
 const BLOCK_REASON: Partial<Record<PassportField["status"], string>> = {
-  pending: "Approve this value in the Review queue before sharing it.",
-  flagged: "Sources disagree. Resolve the conflict before sharing.",
+  pending: "Approve in the Review queue first.",
+  flagged: "Sources disagree.",
 };
 
 const STATUS_TEXT: Record<PassportField["status"], string> = {
@@ -61,45 +61,31 @@ export function Passports({ passport }: { passport: Passport }) {
   return (
     <div className="ps">
       <div className="ps__head">
-        <div>
-          <div className="muted small">Passports</div>
-          <h1>
-            {passport.productId} · {passport.name}
-          </h1>
-          <p className="muted">
-            Choose what the buyer sees behind the QR code. Nothing leaves the vault unless you switch it on.
-          </p>
-        </div>
+        <p className="ps__kind">Passport</p>
+        <h1>
+          <span className="ps__id">{passport.productId}</span> {passport.name}
+        </h1>
+        <p className="ps__summary" aria-label="Passport readiness">
+          <span className="stamp pp__status pp__status--verified">{counts.verified} verified</span>
+          {counts.flagged ? (
+            <span className="stamp pp__status pp__status--flagged">{counts.flagged} need correction</span>
+          ) : null}
+          {counts.pending ? (
+            <span className="stamp pp__status pp__status--pending">{counts.pending} awaiting review</span>
+          ) : null}
+          {counts.missing ? (
+            <span className="stamp pp__status pp__status--missing">{counts.missing} not available</span>
+          ) : null}
+        </p>
       </div>
-
-      <section className="ps__ready" aria-label="Passport readiness">
-        <div className="ready ready--ok">
-          <strong>{counts.verified}</strong> verified
-        </div>
-        {counts.flagged ? (
-          <div className="ready ready--bad">
-            <strong>{counts.flagged}</strong> need correction
-          </div>
-        ) : null}
-        {counts.missing ? (
-          <div className="ready ready--none">
-            <strong>{counts.missing}</strong> not available
-          </div>
-        ) : null}
-        {counts.pending ? (
-          <div className="ready ready--wait">
-            <strong>{counts.pending}</strong> awaiting review
-          </div>
-        ) : null}
-      </section>
 
       <div className="ps__grid">
         <div className="ps__controls">
-          <section className="panel" aria-labelledby="share-title">
-            <div className="panel__head">
+          <section className="panel panel--flush ps__section" aria-labelledby="share-title">
+            <div className="ps__section-head">
               <h2 id="share-title">Fields to share</h2>
               <span className="muted small">
-                {shared.size} of {passport.fields.length} shared
+                {shared.size} of {passport.fields.length} shared. Only fields you switch on are shared.
               </span>
             </div>
             <ul className="share-list">
@@ -114,10 +100,10 @@ export function Passports({ passport }: { passport: Passport }) {
                       </label>
                       <div className="share__value">{f.value}</div>
                       <div className="share__meta">
-                        <span className={`pp__status pp__status--${f.status}`}>{STATUS_TEXT[f.status]}</span>
+                        <span className={`stamp pp__status pp__status--${f.status}`}>{STATUS_TEXT[f.status]}</span>
                         {f.source ? (
-                          <a href="#/review" className="source-link">
-                            {f.source.file} · {f.source.where}
+                          <a href="#/review" className="ps__source">
+                            {f.source.file}, {f.source.where}
                           </a>
                         ) : null}
                       </div>
@@ -164,9 +150,7 @@ export function Passports({ passport }: { passport: Passport }) {
             </div>
             <div className="qr-card__text">
               <h2 id="qr-title">Buyer link</h2>
-              <p className="muted small">
-                The code updates as you change what is shared. Scanning it opens the passport on the right.
-              </p>
+
               <div className="qr-card__actions">
                 <button type="button" className="btn btn--sm" onClick={copy}>
                   {copied ? "Copied" : "Copy link"}
@@ -182,12 +166,12 @@ export function Passports({ passport }: { passport: Passport }) {
           </section>
         </div>
 
-        <section className="ps__preview" aria-label="Buyer preview">
-          <div className="muted small ps__preview-label">What the buyer sees</div>
-          <div className="phone">
-            <div className="phone__screen">
-              <PassportView passport={passport} shared={shared} showLots={showLots} />
-            </div>
+        <section className="panel panel--flush ps__preview" aria-labelledby="preview-label">
+          <h2 className="ps__preview-label" id="preview-label">
+            Buyer preview
+          </h2>
+          <div className="ps__preview-body">
+            <PassportView passport={passport} shared={shared} showLots={showLots} />
           </div>
         </section>
       </div>

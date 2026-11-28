@@ -23,13 +23,14 @@ export function PassportView({ passport, shared, showLots = true }: PassportView
   return (
     <article className="pp" lang="en">
       <header className="pp__head">
-        <div className="pp__kicker">
+        <div className="pp__brand">
           <LogoIcon size={16} />
-          Digital Product Passport
+          <span>{passport.manufacturer}</span>
         </div>
         <h1 className="pp__name">{passport.name}</h1>
-        <div className="pp__id">{passport.productId}</div>
-        <div className="pp__maker">{passport.manufacturer}</div>
+        <div className="pp__id">
+          Digital Product Passport for <span className="mono">{passport.productId}</span>
+        </div>
       </header>
 
       <section className="pp__section" aria-labelledby="pp-fields">
@@ -45,7 +46,7 @@ export function PassportView({ passport, shared, showLots = true }: PassportView
                   <span className={f.status === "missing" ? "pp__value pp__value--missing" : "pp__value"}>
                     {f.value}
                   </span>
-                  <span className={`pp__status pp__status--${f.status}`}>{STATUS_TEXT[f.status]}</span>
+                  <span className={`stamp pp__status pp__status--${f.status}`}>{STATUS_TEXT[f.status]}</span>
                   {f.source ? (
                     <span className="pp__source">
                       Source: {f.source.file}, {f.source.where}
@@ -62,33 +63,40 @@ export function PassportView({ passport, shared, showLots = true }: PassportView
         <section className="pp__section" aria-labelledby="pp-lots">
           <h2 id="pp-lots">Aluminium lots</h2>
           <p className="pp__note">{passport.allocationNote}</p>
-          <div className="pp__lots">
-            {passport.lots.map((l) => (
-              <div key={l.lot} className="pp__lot">
-                <div className="pp__lot-head">
-                  <span className="pp__lot-id">Lot {l.lot}</span>
-                  <span className="pp__lot-form">{l.form}</span>
-                </div>
-                <dl className="pp__lot-grid">
-                  <div>
-                    <dt>Recycled content</dt>
-                    <dd>{l.recycledPct === undefined ? <span className="pp__unknown">Not reported</span> : `${l.recycledPct}%`}</dd>
-                  </div>
-                  <div>
-                    <dt>kg CO₂e per kg Al</dt>
-                    <dd>{l.co2PerKg === undefined ? <span className="pp__unknown">Not reported</span> : l.co2PerKg.toFixed(1)}</dd>
-                  </div>
-                  <div>
-                    <dt>Cast in</dt>
-                    <dd>{l.castingCountry ?? <span className="pp__unknown">Not reported</span>}</dd>
-                  </div>
-                </dl>
-                <div className="pp__source">
-                  Source: {l.source.file}, {l.source.where}
-                </div>
-              </div>
-            ))}
-          </div>
+          <table className="pp__lots">
+            <thead>
+              <tr>
+                <th scope="col">Lot</th>
+                <th scope="col" className="num">
+                  Recycled
+                </th>
+                <th scope="col" className="num">
+                  kg CO₂e/kg
+                </th>
+                <th scope="col">Cast in</th>
+              </tr>
+            </thead>
+            <tbody>
+              {passport.lots.map((l) => (
+                <tr key={l.lot}>
+                  <th scope="row">
+                    <span className="pp__lot-id mono">{l.lot}</span>
+                    <span className="pp__lot-form">{l.form}</span>
+                    <span className="pp__source">
+                      {l.source.file}, {l.source.where}
+                    </span>
+                  </th>
+                  <td className="num">
+                    {l.recycledPct === undefined ? <span className="pp__unknown">Not reported</span> : `${l.recycledPct}%`}
+                  </td>
+                  <td className="num">
+                    {l.co2PerKg === undefined ? <span className="pp__unknown">Not reported</span> : l.co2PerKg.toFixed(1)}
+                  </td>
+                  <td>{l.castingCountry ?? <span className="pp__unknown">Not reported</span>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </section>
       ) : null}
 

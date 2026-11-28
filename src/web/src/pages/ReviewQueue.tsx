@@ -19,6 +19,21 @@ const STATUS_LABEL: Record<ReviewStatus, string> = {
   rejected: "Rejected",
 };
 
+/** Lets long file names wrap after an underscore, hyphen or dot instead of mid-word. */
+function FileName({ name }: { name: string }) {
+  const parts = name.split(/(?<=[_.-])/);
+  return (
+    <>
+      {parts.map((p, i) => (
+        <span key={i}>
+          {p}
+          {i < parts.length - 1 ? <wbr /> : null}
+        </span>
+      ))}
+    </>
+  );
+}
+
 function confidenceLevel(c: number): "high" | "mid" | "low" {
   if (c >= 0.95) return "high";
   if (c >= 0.9) return "mid";
@@ -89,12 +104,12 @@ function FieldRow({
       {field.quote ? (
         <div className="field__quote">
           <span className="mono">“{field.quote}”</span>
-          {field.translation ? <span className="muted"> · EN: {field.translation}</span> : null}
+          {field.translation ? <span className="field__en muted">English: {field.translation}</span> : null}
         </div>
       ) : null}
 
       <div className="field__bottom">
-        <span className="mono muted small">{field.where}</span>
+        <span className="muted small">{field.where}</span>
         {decision.status === "pending" ? (
           <div className="field__actions">
             <button type="button" className="btn btn--sm btn--ok" onClick={() => onDecide({ status: "approved" })}>
@@ -109,7 +124,7 @@ function FieldRow({
           </div>
         ) : (
           <div className="field__actions">
-            <span className={`status status--${decision.status}`}>{STATUS_LABEL[decision.status]}</span>
+            <span className={`stamp status status--${decision.status}`}>{STATUS_LABEL[decision.status]}</span>
             <button type="button" className="btn btn--sm btn--ghost" onClick={() => onDecide({ status: "pending" })}>
               Undo
             </button>
@@ -164,7 +179,7 @@ export function ReviewQueue({ items }: { items: ReviewItem[] }) {
         <div>
           <h1>Review queue</h1>
           <p className="muted">
-            Nothing extracted is used until a person approves it. {totals.done} of {totals.all} values reviewed.
+            {totals.done} of {totals.all} values reviewed
           </p>
         </div>
         <div
@@ -180,7 +195,8 @@ export function ReviewQueue({ items }: { items: ReviewItem[] }) {
       </div>
 
       <div className="rq__grid">
-        <nav className="rq__list panel panel--flush" aria-label="Documents waiting for review">
+        <nav className="rq__list" aria-label="Documents waiting for review">
+          <h2 className="rq__colhead">Documents</h2>
           <ul>
             {items.map((it) => {
               const pending = pendingIn(it);
@@ -195,10 +211,16 @@ export function ReviewQueue({ items }: { items: ReviewItem[] }) {
                       setHoverField(undefined);
                     }}
                   >
-                    <span className="doc-btn__name mono">{it.file}</span>
+                    <span className="doc-btn__name mono">
+                      <FileName name={it.file} />
+                    </span>
                     <span className="doc-btn__meta">
-                      {it.docType} · {it.supplier}
-                      {it.language === "fr" ? <span className="lang">FR</span> : null}
+                      {it.docType}, {it.supplier}
+                      {it.language === "fr" ? (
+                        <span className="lang" title="French source">
+                          FR
+                        </span>
+                      ) : null}
                     </span>
                     <span className={`doc-btn__count${pending ? "" : " doc-btn__count--done"}`}>
                       {pending ? `${pending} to review` : "Done"}
@@ -210,13 +232,13 @@ export function ReviewQueue({ items }: { items: ReviewItem[] }) {
           </ul>
         </nav>
 
-        <section className="rq__preview panel" aria-labelledby="preview-title">
-          <div className="panel__head">
-            <h2 id="preview-title" className="mono preview-title">
-              {item.file}
+        <section className="rq__preview" aria-labelledby="preview-title">
+          <div className="rq__preview-head">
+            <h2 id="preview-title" className="rq__colhead mono preview-title">
+              <FileName name={item.file} />
             </h2>
             <span className="muted small">
-              Page 1 · read {item.method === "ocr" ? "by OCR" : "from the text layer"}
+              Page 1, {item.method === "ocr" ? "scanned (OCR)" : "text layer"}
             </span>
           </div>
           <div className="paper" lang={item.language}>
@@ -226,14 +248,13 @@ export function ReviewQueue({ items }: { items: ReviewItem[] }) {
               </p>
             ))}
           </div>
-          <p className="muted small">
-            Preview of the original. The highlighted line is where the selected value was read.
-          </p>
         </section>
 
         <section className="rq__fields" aria-labelledby="fields-title">
           <div className="rq__fields-head">
-            <h2 id="fields-title">Extracted values</h2>
+            <h2 id="fields-title" className="rq__colhead">
+              Extracted values
+            </h2>
             <button type="button" className="btn btn--sm" disabled={!confidentPending} onClick={approveConfident}>
               Approve {confidentPending} at 95%+
             </button>

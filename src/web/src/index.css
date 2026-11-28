@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Lato:wght@400;700;900&display=swap");
 
 /* Color and layout tokens live in styles/theme.css. */
 
@@ -19,13 +19,30 @@ body {
   background: var(--bg);
   color: var(--ink);
   font-family: var(--font);
-  font-size: 15px;
+  font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
 
 a {
   color: var(--link);
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+}
+
+h1,
+h2 {
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+table {
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background: var(--highlight-bg);
+  color: var(--ink);
 }
 
 button {

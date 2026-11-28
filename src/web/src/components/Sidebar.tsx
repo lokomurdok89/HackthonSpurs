@@ -1,5 +1,5 @@
 import type { NavItem, RouteId } from "./nav";
-import { mainNav, secondaryNav } from "./nav";
+import { navGroups, secondaryNav } from "./nav";
 import { UserCard, type CurrentUser } from "./UserCard";
 
 interface SidebarProps {
@@ -39,7 +39,16 @@ export function Sidebar({ active, open, user, onNavigate }: SidebarProps) {
   return (
     <aside id="sidebar" className={`sidebar${open ? " sidebar--open" : ""}`} aria-label="Sections">
       <nav className="sidebar__nav" aria-label="Main">
-        <NavLinks items={mainNav} active={active} onNavigate={onNavigate} />
+        {navGroups.map((g) => (
+          <div key={g.label} className="nav-group">
+            <div className="nav-group__label" id={`nav-${g.label}`}>
+              {g.label}
+            </div>
+            <div aria-labelledby={`nav-${g.label}`} role="group">
+              <NavLinks items={g.items} active={active} onNavigate={onNavigate} />
+            </div>
+          </div>
+        ))}
       </nav>
       <div className="sidebar__bottom">
         <nav aria-label="Secondary">

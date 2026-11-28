@@ -56,5 +56,44 @@ export function summarize(bom: BomLine[]) {
   return { total, byBucket, mix, largestUnknown };
 }
 
+/** The document that would prove a not-proven line, if it confirms CA, US or MX origin. */
+const NEEDED: Partial<Record<EvidenceType, string>> = {
+  unknown_origin: "Origin declaration naming the manufacturer",
+  lot_dependent: "Mill test report for each lot used",
+  purchase_without_origin: "Supplier origin certification",
+  invoice_states_origin: "Supplier origin certification",
+};
+
+export function neededDocument(line: BomLine): string | undefined {
+  return bucketOf(line) === "unproven" ? (NEEDED[line.evidence] ?? "Supplier origin certification") : undefined;
+}
+
+export interface SupplierSummary {
+  supplier: string;
+  lines: BomLine[];
+  total: number;
+  byBucket: Record<OriginBucket, number>;
+  /** Not-proven lines from this supplier with the document to ask for. */
+  asks: { line: BomLine; document: string }[];
+}
+
+/** Groups the BOM by supplier, the suppliers with the most unproven cost first. */
+export function bySupplier(bom: BomLine[]): SupplierSummary[] {
+  const map = new Map<string, SupplierSummary>();
+  for (const l of bom) {
+    let s = map.get(l.supplier);
+    if (!s) {
+      s = { supplier: l.supplier, lines: [], total: 0, byBucket: { evidenced_cusma: 0, stated_outside: 0, unproven: 0 }, asks: [] };
+      map.set(l.supplier, s);
+    }
+    s.lines.push(l);
+    s.total += l.costCad;
+    s.byBucket[bucketOf(l)] += l.costCad;
+    const document = neededDocument(l);
+    if (document) s.asks.push({ line: l, document });
+  }
+  return [...map.values()].sort((a, b) => b.byBucket.unproven - a.byBucket.unproven || b.total - a.total);
+}
+
 export const cad = (n: number) => `CAD ${n.toFixed(2)}`;
 export const pct = (share: number) => `${(share * 100).toFixed(1)}%`;
