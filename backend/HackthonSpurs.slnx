@@ -1,9 +1,26 @@
 <Solution>
-  <Project Path="HackthonSpurs.Api/HackthonSpurs.Api.csproj" />
-  <Project Path="HackthonSpurs.Documents/HackthonSpurs.Documents.csproj" />
-  <Project Path="HackthonSpurs.Worker/HackthonSpurs.Worker.csproj" />
-  <Project Path="reader-fixture/FixtureReader.csproj" />
-  <Folder Name="/tests/">
+  <Folder Name="/Core/">
+    <Project Path="Core/HackthonSpurs.Domain/HackthonSpurs.Domain.csproj" />
+    <Project Path="Core/HackthonSpurs.Application/HackthonSpurs.Application.csproj" />
+  </Folder>
+  <Folder Name="/Hosts/">
+    <Project Path="Hosts/HackthonSpurs.Api/HackthonSpurs.Api.csproj" />
+    <Project Path="Hosts/HackthonSpurs.Worker/HackthonSpurs.Worker.csproj" />
+  </Folder>
+  <Folder Name="/Adapters/">
+    <Project Path="Adapters/HackthonSpurs.Persistence/HackthonSpurs.Persistence.csproj" />
+  </Folder>
+  <Folder Name="/OCR/">
+    <Project Path="OCR/HackthonSpurs.Reader.Spur/HackthonSpurs.Reader.Spur.csproj" />
+    <Project Path="OCR/HackthonSpurs.Ocr.Bilevel/HackthonSpurs.Ocr.Bilevel.csproj" />
+  </Folder>
+  <Folder Name="/Testing/">
+    <Project Path="Testing/HackthonSpurs.Reader.Fixture/HackthonSpurs.Reader.Fixture.csproj" />
+    <Project Path="../tests/application/Application.Tests.csproj" />
+    <Project Path="../tests/spur-reader/SpurReader.Tests.csproj" />
     <Project Path="../tests/worker/WorkerContract.Tests.csproj" />
+  </Folder>
+  <Folder Name="/Shared/">
+    <Project Path="Shared/HackthonSpurs.Resources/HackthonSpurs.Resources.csproj" />
   </Folder>
 </Solution>

@@ -14,12 +14,14 @@ const STATUS_LABEL: Record<ReviewStatus, string> = {
   rejected: "Rejected",
 };
 
+/** Map the supplied technical confidence score to its UI band. */
 function confidenceLevel(c: number): "high" | "mid" | "low" {
   if (c >= 0.95) return "high";
   if (c >= 0.9) return "mid";
   return "low";
 }
 
+/** Render a review field and its current decision; expose focus and decision actions and highlight if requested. */
 export function FieldRow({
   field,
   decision,
@@ -32,7 +34,7 @@ export function FieldRow({
   decision: Decision;
   highlighted: boolean;
   onFocus: () => void;
-  onDecide: (d: Decision) => void;
+  onDecide?: (d: Decision) => void;
   needsSecond?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
@@ -54,7 +56,7 @@ export function FieldRow({
         </span>
       </div>
 
-      {editing ? (
+      {editing && onDecide ? (
         <form
           className="field__edit"
           onSubmit={(e) => {
@@ -92,7 +94,7 @@ export function FieldRow({
 
       <div className="field__bottom">
         <span className="muted small">{field.where}</span>
-        {decision.status === "pending" ? (
+        {!onDecide ? null : decision.status === "pending" ? (
           <div className="field__actions">
             <button type="button" className="btn btn--sm btn--ok" onClick={() => onDecide({ status: "approved" })}>
               Approve

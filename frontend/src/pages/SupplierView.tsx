@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { BomLine } from "../data/types";
 import { bySupplier, type SupplierSummary } from "../data/evidence";
 
+/** Draft an unsent evidence request based on the supplier's missing documents and the given product ID. */
 function draftText(s: SupplierSummary, productId: string) {
   const items = s.asks.map((a) => `- ${a.document} for ${a.line.description} (our part ${a.line.componentId})`);
   return [
@@ -17,10 +18,12 @@ function draftText(s: SupplierSummary, productId: string) {
   ].join("\n");
 }
 
+/** Show a copyable evidence request for the supplied supplier summary and product identifier. */
 function Draft({ s, productId }: { s: SupplierSummary; productId: string }) {
   const text = draftText(s, productId);
   const fieldId = `draft-text-${s.supplier.replace(/\W+/g, "-")}`;
   const [copied, setCopied] = useState(false);
+  /** Copy the displayed request text and show temporary confirmation. */
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(text);
@@ -48,6 +51,7 @@ function Draft({ s, productId }: { s: SupplierSummary; productId: string }) {
   );
 }
 
+/** Group the given BOM by supplier and show evidence requests for the supplied product ID. */
 export function SupplierView({ bom, productId }: { bom: BomLine[]; productId: string }) {
   const suppliers = bySupplier(bom);
   const [open, setOpen] = useState<string | null>(null);
@@ -113,7 +117,9 @@ interface RowsProps {
   productId: string;
 }
 
+/** Render a supplier summary with required documents; use the given expanded state, toggle callback and product ID for details. */
 function SupplierRows({ s, docs, isOpen, onToggle, productId }: RowsProps) {
+  /** Show the given amount as a fraction of the current supplier total. */
   const share = (n: number) => `${(n / s.total) * 100}%`;
   const draftId = `draft-row-${s.supplier.replace(/\W+/g, "-")}`;
   const asks = docs.length ? (

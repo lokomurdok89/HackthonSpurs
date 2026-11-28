@@ -8,10 +8,7 @@ interface GapPlannerProps {
   proven: number;
 }
 
-/**
- * Lists the not-proven lines, largest first, with the document that would prove each one.
- * Ticking lines shows the proven share if those documents come back confirming CA, US or MX origin.
- */
+/** Show an illustrative plan based on the supplied BOM, total cost and currently evidenced amount. */
 export function GapPlanner({ bom, total, proven }: GapPlannerProps) {
   const gaps = bom
     .filter((l) => bucketOf(l) === "unproven")
@@ -20,6 +17,7 @@ export function GapPlanner({ bom, total, proven }: GapPlannerProps) {
   const outside = bom.filter((l) => bucketOf(l) === "stated_outside").reduce((s, l) => s + l.costCad, 0);
 
   const [picked, setPicked] = useState<Set<string>>(() => new Set());
+  /** Toggle selection of a gap for the indicated component ID. */
   const toggle = (id: string) =>
     setPicked((prev) => {
       const next = new Set(prev);
@@ -65,7 +63,7 @@ export function GapPlanner({ bom, total, proven }: GapPlannerProps) {
               with {picked.size} {picked.size === 1 ? "document" : "documents"} ({cad(added)})
             </>
           ) : (
-null
+            null
           )}
         </p>
       </div>

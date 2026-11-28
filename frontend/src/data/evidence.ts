@@ -8,7 +8,7 @@ export interface EvidenceMeta {
   chipFg: string;
 }
 
-/** Colors come from styles/theme.css so they follow the light or dark theme. */
+/** Find the theme color variables for the given evidence style key. */
 function tokens(key: string) {
   return { color: `var(--ev-${key})`, chipBg: `var(--ev-${key}-bg)`, chipFg: `var(--ev-${key}-fg)` };
 }
@@ -28,10 +28,7 @@ const STRONG: ReadonlySet<EvidenceType> = new Set(["lot_specific_mill_test_repor
 
 export type OriginBucket = "evidenced_cusma" | "stated_outside" | "unproven";
 
-/**
- * Sorts a BOM line into one of three buckets for the summary cards.
- * This is a view of the evidence, not a regional value content calculation.
- */
+/** Group the provided BOM line by technical origin evidence; this is not a regional value content calculation. */
 export function bucketOf(line: BomLine): OriginBucket {
   const c = line.evidencedCountry;
   if (c && CUSMA_COUNTRIES.has(c) && STRONG.has(line.evidence)) return "evidenced_cusma";
@@ -39,6 +36,7 @@ export function bucketOf(line: BomLine): OriginBucket {
   return "unproven";
 }
 
+/** Summarize the given BOM by cost, origin evidence and its highest-cost unresolved line. */
 export function summarize(bom: BomLine[]) {
   const total = bom.reduce((s, l) => s + l.costCad, 0);
   const byBucket: Record<OriginBucket, number> = { evidenced_cusma: 0, stated_outside: 0, unproven: 0 };
@@ -64,6 +62,7 @@ const NEEDED: Partial<Record<EvidenceType, string>> = {
   invoice_states_origin: "Supplier origin certification",
 };
 
+/** Describe the evidence still needed to support the supplied BOM line, if any. */
 export function neededDocument(line: BomLine): string | undefined {
   return bucketOf(line) === "unproven" ? (NEEDED[line.evidence] ?? "Supplier origin certification") : undefined;
 }
@@ -77,7 +76,7 @@ export interface SupplierSummary {
   asks: { line: BomLine; document: string }[];
 }
 
-/** Groups the BOM by supplier, the suppliers with the most unproven cost first. */
+/** Group BOM lines by supplier and order suppliers by highest unresolved cost. */
 export function bySupplier(bom: BomLine[]): SupplierSummary[] {
   const map = new Map<string, SupplierSummary>();
   for (const l of bom) {
@@ -95,14 +94,18 @@ export function bySupplier(bom: BomLine[]): SupplierSummary[] {
   return [...map.values()].sort((a, b) => b.byBucket.unproven - a.byBucket.unproven || b.total - a.total);
 }
 
+/** Format the numeric amount in CAD with two decimal places. */
 export const cad = (n: number) => `CAD ${n.toFixed(2)}`;
+/** Format the supplied proportional share as a percentage. */
 export const pct = (share: number) => `${(share * 100).toFixed(1)}%`;
 
-/** Numbers every source document once, in reading order, so the table and findings cite the same list. */
+/** Assign stable reading-order references to all sources in the BOM and findings. */
 export function numberSources(bom: BomLine[], findings: Finding[]) {
   const list: SourceRef[] = [];
   const index = new Map<string, number>();
+  /** Use the supplied source's filename and locator to identify a cited position. */
   const key = (s: SourceRef) => `${s.file}|${s.where}`;
+  /** Assign the supplied source the next number unless its citation already exists. */
   const add = (s: SourceRef) => {
     if (!index.has(key(s))) {
       list.push(s);

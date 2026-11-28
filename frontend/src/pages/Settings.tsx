@@ -32,10 +32,10 @@ export function Row({ label, help, children }: { label: string; help: string; ch
   );
 }
 
-export function Settings({ passport }: { passport: Passport }) {
+export function Settings({ passport, canManage }: { passport: Passport; canManage: boolean }) {
   const s = useSettings();
   const log = useActivityLog();
-  const [tab, setTab] = useState<Tab>("review");
+  const [tab, setTab] = useState<Tab>(canManage ? "review" : "appearance");
 
   const shareable = passport.fields.filter((f) => f.status === "verified" || f.status === "missing");
   const sharedNow = s.defaultShared ?? shareable.map((f) => f.label);
@@ -44,12 +44,13 @@ export function Settings({ passport }: { passport: Passport }) {
     updateSettings({ defaultShared: next }, `${on ? "Shared" : "Stopped sharing"} "${label}" by default`);
   };
 
-  const tabs: { id: Tab; label: string; count?: number }[] = [
+  const allTabs: { id: Tab; label: string; count?: number }[] = [
     { id: "review", label: "Review rules" },
     { id: "sharing", label: "Sharing defaults" },
     { id: "appearance", label: "Appearance" },
     { id: "log", label: "Activity log", count: log.length },
   ];
+  const tabs = allTabs.filter((t) => canManage || t.id === "appearance" || t.id === "log");
 
   return (
     <div className="st">
@@ -162,7 +163,7 @@ export function Settings({ passport }: { passport: Passport }) {
         )}
       </section>
 
-      {tab !== "log" ? (
+      {canManage && tab !== "log" ? (
         <div>
           <button type="button" className="btn btn--ghost" onClick={resetSettings}>Restore defaults</button>
         </div>

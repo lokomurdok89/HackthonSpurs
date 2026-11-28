@@ -1,8 +1,8 @@
 import { useState, type FormEvent } from "react";
+import { publicPassportUrl } from "../data/passportUrl";
 import { logActivity, useSettings } from "../data/settings";
 import type { Passport } from "../data/types";
 import "./BuyerAccess.css";
-import { publicPassportUrl } from "./Passports";
 
 type AccessState = "active" | "expired" | "revoked";
 

@@ -2,15 +2,487 @@
   "openapi": "3.1.0",
   "info": {
     "title": "HackthonSpurs Document API",
-    "version": "0.1.0",
-    "description": "Contract-first, same-origin, local single-user demo. Synthetic examples only. No live backend is implied. The Worker and reader are private to the backend."
+    "version": "0.4.0",
+    "description": "Contract-first, same-origin, local authenticated single-workspace demo. Synthetic examples only. The Worker and reader are private to the backend."
   },
+  "security": [{"workspaceCookie":[]}],
   "paths": {
+    "/api/documents/{id}/chunks": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/DocumentId"
+        }
+      ],
+      "get": {
+        "operationId": "getDocumentChunks",
+        "summary": "Inspect indexed excerpts without calling OCR or embeddings",
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/AuthenticationRequired"
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidId"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "200": {
+            "description": "Stored document metadata and compatible excerpts, in source order.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "documentId",
+                    "sourceName",
+                    "mediaType",
+                    "byteCount",
+                    "state",
+                    "createdAt",
+                    "chunks"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "documentId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "sourceName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "mediaType": {
+                      "type": "string"
+                    },
+                    "byteCount": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "state": {
+                      "type": "string"
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "chunks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "chunkId",
+                          "chunkIndex",
+                          "locator",
+                          "text",
+                          "model"
+                        ],
+                        "additionalProperties": false,
+                        "properties": {
+                          "chunkId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "chunkIndex": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "locator": {
+                            "type": "string"
+                          },
+                          "text": {
+                            "type": "string"
+                          },
+                          "model": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "examples": {
+                  "sample": {
+                    "value": {
+                      "documentId": "10000000-0000-4000-8000-000000000001",
+                      "sourceName": null,
+                      "mediaType": "application/pdf",
+                      "byteCount": 120,
+                      "state": "Completed",
+                      "createdAt": "2026-01-01T00:00:00Z",
+                      "chunks": []
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/documents/{id}/reindex": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/DocumentId"
+        }
+      ],
+      "post": {
+        "operationId": "reindexTranscript",
+        "summary": "Administrator: schedule new embeddings from existing OCR without rereading the original",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceRequest"
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/AuthenticationRequired"
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidId"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "description": "Semantic search is not enabled.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                },
+                "examples": {
+                  "sample": {
+                    "value": {
+                      "status": 503,
+                      "title": "Semantic search is not enabled.",
+                      "code": "embeddings_not_configured"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Index is queued or already in progress. No response body."
+          },
+          "403": {
+            "$ref": "#/components/responses/AccessDenied"
+          },
+          "409": {
+            "description": "No completed or failed OCR index is available to rebuild.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                },
+                "examples": {
+                  "sample": {
+                    "value": {
+                      "status": 409,
+                      "title": "No completed or failed OCR index is available to rebuild.",
+                      "code": "index_not_ready"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "operationId": "signIn",
+        "summary": "Start a workspace session",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceRequest"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Login"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Safe user information; no credential or session material.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceUser"
+                },
+                "examples": {
+                  "sample": {
+                    "value": {
+                      "id": "20000000-0000-4000-8000-000000000001",
+                      "username": "sample-reader",
+                      "displayName": "Sample reader",
+                      "role": "reader",
+                      "active": true
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "Set-Cookie": {
+                "description": "Opaque HttpOnly session cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/AccountInput"
+          },
+          "401": {
+            "$ref": "#/components/responses/InvalidCredentials"
+          },
+          "403": {
+            "$ref": "#/components/responses/AccessDenied"
+          },
+          "429": {
+            "$ref": "#/components/responses/LoginLimited"
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "operationId": "currentUser",
+        "summary": "Read the current signed-in user",
+        "responses": {
+          "200": {
+            "description": "Safe user information; no credential or session material.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceUser"
+                },
+                "examples": {
+                  "sample": {
+                    "value": {
+                      "id": "20000000-0000-4000-8000-000000000001",
+                      "username": "sample-reader",
+                      "displayName": "Sample reader",
+                      "role": "reader",
+                      "active": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationRequired"
+          }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "operationId": "signOut",
+        "summary": "Revoke the current session",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceRequest"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Session revoked; cookie cleared."
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/AccessDenied"
+          }
+        }
+      }
+    },
+    "/api/users": {
+      "get": {
+        "operationId": "listWorkspaceUsers",
+        "summary": "List accounts (administrator only)",
+        "responses": {
+          "200": {
+            "description": "Safe user information; no credential or session material.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WorkspaceUser"
+                  }
+                },
+                "examples": {
+                  "sample": {
+                    "value": [
+                      {
+                        "id": "20000000-0000-4000-8000-000000000001",
+                        "username": "sample-reader",
+                        "displayName": "Sample reader",
+                        "role": "reader",
+                        "active": true
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/AccessDenied"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createWorkspaceUser",
+        "summary": "Create an account (administrator only)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceRequest"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUser"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Safe user information; no credential or session material.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceUser"
+                },
+                "examples": {
+                  "sample": {
+                    "value": {
+                      "id": "20000000-0000-4000-8000-000000000001",
+                      "username": "sample-reader",
+                      "displayName": "Sample reader",
+                      "role": "reader",
+                      "active": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/AccountInput"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/AccessDenied"
+          },
+          "409": {
+            "$ref": "#/components/responses/AccountConflict"
+          }
+        }
+      }
+    },
+    "/api/users/{id}": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "id",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "patch": {
+        "operationId": "updateWorkspaceUser",
+        "summary": "Update an account or reset its password (administrator only)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceRequest"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUser"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Safe user information; no credential or session material.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceUser"
+                },
+                "examples": {
+                  "sample": {
+                    "value": {
+                      "id": "20000000-0000-4000-8000-000000000001",
+                      "username": "sample-reader",
+                      "displayName": "Sample reader",
+                      "role": "reader",
+                      "active": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/AccountInput"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthenticationRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/AccessDenied"
+          },
+          "404": {
+            "$ref": "#/components/responses/AccountMissing"
+          },
+          "409": {
+            "$ref": "#/components/responses/AccountConflict"
+          }
+        }
+      }
+    },
     "/api/documents": {
       "post": {
         "operationId": "uploadDocument",
         "summary": "Accept one file for asynchronous reading",
-        "description": "PDF, XLSX and CSV are the initial allowlist; verify actual content server-side. The file byte limit is configurable (demo default 20 MiB). New key = new operation. Same key and identical file bytes (even with a different name) = same receipt; same key and different bytes = 409. Do not use file name or digest alone as the key.",
+        "description": "Without the provider header, PDF/XLSX/CSV are stored locally. With SPUR, submit PDF, DOCX, XLSX, PPTX, UTF-8 TXT/CSV (up to 20 MiB, 20 printed pages) or PNG/JPEG (up to 4 MiB). Unsupported types return 415; unrenderable and over-page-limit documents fail asynchronously. The file byte limit is configurable (demo default 20 MiB). New key = new operation. Same key and identical file bytes (even with a different name) = same receipt; same key and different bytes or processing mode = 409. Do not use file name or digest alone as the key.",
         "parameters": [
           {
             "in": "header",
@@ -18,7 +490,13 @@
             "required": true,
             "description": "Client-generated UUID per upload action; reuse it after network loss.",
             "schema": {"type":"string","format":"uuid"}
-          }
+          },
+          {
+            "in": "header", "name": "X-OCR-Provider", "required": false,
+            "description": "Set for the Send to OCR action; printed pages go to SPUR. Requires the local SPUR overlay; otherwise 503/ocr_disabled. Omit for regular uploads.",
+            "schema": {"type":"string","enum":["spur"]}
+          },
+          {"$ref":"#/components/parameters/WorkspaceRequest"}
         ],
         "requestBody": {
           "required": true,
@@ -32,13 +510,15 @@
               },
               "encoding": {
                 "file": {
-                  "contentType": "application/pdf, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, text/csv, application/octet-stream"
+                  "contentType": "application/pdf, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.openxmlformats-officedocument.wordprocessingml.document, application/vnd.openxmlformats-officedocument.presentationml.presentation, text/plain, text/csv, image/png, image/jpeg, application/octet-stream"
                 }
               }
             }
           }
         },
         "responses": {
+          "401": {"$ref":"#/components/responses/AuthenticationRequired"},
+          "403": {"$ref":"#/components/responses/AccessDenied"},
           "202": {
             "description": "Original stored and document + queued job committed, or replay of a previously accepted operation. Never creates a second job on replay; status may already be terminal.",
             "headers": {
@@ -104,7 +584,16 @@
               }
             }
           },
-          "503": {"$ref":"#/components/responses/Unavailable"}
+          "503": {
+            "description": "Service unavailable, or document OCR is not enabled.",
+            "content": {"application/problem+json":{
+              "schema":{"$ref":"#/components/schemas/Problem"},
+              "examples":{
+                "disabled":{"value":{"status":503,"code":"ocr_disabled","title":"SPUR document reading is not enabled."}},
+                "unavailable":{"value":{"status":503,"code":"service_unavailable","title":"Service temporarily unavailable."}}
+              }
+            }}
+          }
         }
       }
     },
@@ -115,6 +604,7 @@
         "summary": "Read an existing document's processing state",
         "description": "Read-only. Poll Queued/Processing, including Processing → Queued on transient retry. Stop on Completed or Failed. A successful status lookup is HTTP 200 even for Failed.",
         "responses": {
+          "401": {"$ref":"#/components/responses/AuthenticationRequired"},
           "200": {
             "description": "Current durable state; a completed result is available atomically.",
             "content": {
@@ -153,6 +643,7 @@
         "operationId": "getDocumentResult",
         "summary": "Read persisted evidence without scheduling work",
         "responses": {
+          "401": {"$ref":"#/components/responses/AuthenticationRequired"},
           "200": {
             "description": "Completed technical reading (possibly partial). The examples are alternative synthetic responses, not decisions or a multi-file response.",
             "content": {
@@ -265,13 +756,421 @@
           "503": {"$ref":"#/components/responses/Unavailable"}
         }
       }
+    },
+    "/api/documents/{id}/index-status": {
+      "parameters": [{"$ref":"#/components/parameters/DocumentId"}],
+      "get": {
+        "operationId": "getDocumentIndexStatus",
+        "summary": "Look up the independent semantic indexing stage",
+        "description": "Read-only. Poll AwaitingReading, Queued or Processing. A failed or skipped index does not alter the OCR reading. Existing completed readings are not backfilled.",
+        "responses": {
+          "401": {"$ref":"#/components/responses/AuthenticationRequired"},
+          "200": {
+            "description": "Current status of indexing for an existing receipt.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref":"#/components/schemas/DocumentIndexStatus"},
+                "examples": {
+                  "awaitingReading": {
+                    "value": {
+                      "id": "10000000-0000-4000-8000-000000000002",
+                      "state": "AwaitingReading",
+                      "attempt": 0,
+                      "chunkCount": 0
+                    }
+                  },
+                  "notApplicable": {
+                    "value": {
+                      "id": "10000000-0000-4000-8000-000000000002",
+                      "state": "NotApplicable",
+                      "attempt": 0,
+                      "chunkCount": 0
+                    }
+                  },
+                  "notIndexed": {
+                    "value": {
+                      "id": "10000000-0000-4000-8000-000000000002",
+                      "state": "NotIndexed",
+                      "attempt": 0,
+                      "chunkCount": 0
+                    }
+                  },
+                  "queued": {
+                    "value": {"id":"10000000-0000-4000-8000-000000000002","state":"Queued","attempt":0,"chunkCount":0}
+                  },
+                  "processing": {
+                    "value": {
+                      "id": "10000000-0000-4000-8000-000000000002",
+                      "state": "Processing",
+                      "attempt": 1,
+                      "chunkCount": 0
+                    }
+                  },
+                  "indexed": {
+                    "value": {
+                      "id": "10000000-0000-4000-8000-000000000002",
+                      "state": "Completed",
+                      "attempt": 1,
+                      "chunkCount": 2
+                    }
+                  },
+                  "skipped": {
+                    "value": {"id":"10000000-0000-4000-8000-000000000002","state":"Skipped","attempt":0,"chunkCount":0}
+                  },
+                  "failed": {
+                    "value": {
+                      "id": "10000000-0000-4000-8000-000000000002",
+                      "state": "Failed",
+                      "attempt": 1,
+                      "chunkCount": 0,
+                      "failureCode": "embedding_response_invalid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {"$ref":"#/components/responses/InvalidId"},
+          "404": {"$ref":"#/components/responses/NotFound"},
+          "503": {"$ref":"#/components/responses/Unavailable"}
+        }
+      }
+    },
+    "/api/search": {
+      "post": {
+        "operationId": "searchDocumentText",
+        "summary": "Search completed OCR indexes for page excerpts",
+        "description": "Explicit search is read-only with respect to documents. When compatible excerpts exist, the server submits the query text to SPUR. Only currently compatible indexes from successful SPUR OCR are searched; neither originals nor search queries are persisted by this operation.",
+        "parameters": [{"$ref":"#/components/parameters/WorkspaceRequest"}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref":"#/components/schemas/SemanticSearchRequest"},
+              "examples": {
+                "scoped": {
+                  "value": {"query":"demo certificate","topK":8,"documentId":"10000000-0000-4000-8000-000000000002"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "401": {"$ref":"#/components/responses/AuthenticationRequired"},
+          "403": {"$ref":"#/components/responses/AccessDenied"},
+          "200": {
+            "description": "Ranked OCR excerpts from the active vector profile, or an empty list when none are available.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref":"#/components/schemas/SemanticSearchResponse"},
+                "examples": {
+                  "hit": {
+                    "value": {
+                      "query": "demo certificate",
+                      "model": "spur-embed",
+                      "results": [{"chunkId":"30000000-0000-4000-8000-000000000001","documentId":"10000000-0000-4000-8000-000000000002","chunkIndex":0,"sourceName":null,"locator":"page 1","pageLocator":{"kind":"page","page":1},"text":"DEMO certificate SAMPLE-014.","model":"spur-embed","score":0.997}]
+                    }
+                  },
+                  "empty": {"value":{"query":"demo certificate","model":"spur-embed","results":[]}}
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed JSON or invalid query, result limit or receipt scope.",
+            "content": {
+              "application/problem+json": {
+                "schema": {"$ref":"#/components/schemas/Problem"},
+                "examples": {
+                  "invalid": {
+                    "value": {
+                      "status": 400,
+                      "code": "invalid_search",
+                      "title": "Provide a query of 1 to 1000 characters and a result limit of 1 to 50."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Search JSON exceeds 16 KiB.",
+            "content": {
+              "application/problem+json": {
+                "schema": {"$ref":"#/components/schemas/Problem"},
+                "examples": {
+                  "tooLarge": {
+                    "value": {"status":413,"code":"file_too_large","title":"File exceeds the upload size limit."}
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Request content type is not JSON.",
+            "content": {
+              "application/problem+json": {
+                "schema": {"$ref":"#/components/schemas/Problem"},
+                "examples": {
+                  "unsupported": {
+                    "value": {
+                      "status": 415,
+                      "code": "unsupported_media_type",
+                      "title": "Unsupported file or request format."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "SPUR rejected the request or returned an invalid vector response.",
+            "content": {
+              "application/problem+json": {
+                "schema": {"$ref":"#/components/schemas/Problem"},
+                "examples": {
+                  "rejected": {
+                    "value": {
+                      "status": 502,
+                      "code": "embedding_provider_rejected",
+                      "title": "The semantic search provider could not process the request."
+                    }
+                  },
+                  "invalidResponse": {
+                    "value": {
+                      "status": 502,
+                      "code": "embedding_response_invalid",
+                      "title": "The semantic search provider could not process the request."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The provider or persistence is unavailable, or embeddings are not enabled.",
+            "content": {
+              "application/problem+json": {
+                "schema": {"$ref":"#/components/schemas/Problem"},
+                "examples": {
+                  "notConfigured": {
+                    "value": {
+                      "status": 503,
+                      "code": "embeddings_not_configured",
+                      "title": "Semantic search is not enabled."
+                    }
+                  },
+                  "unavailable": {
+                    "value": {
+                      "status": 503,
+                      "code": "embedding_provider_unavailable",
+                      "title": "The semantic search provider is temporarily unavailable."
+                    }
+                  },
+                  "persistence": {
+                    "value": {"status":503,"code":"service_unavailable","title":"Service temporarily unavailable."}
+                  }
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The embedding provider timed out.",
+            "content": {
+              "application/problem+json": {
+                "schema": {"$ref":"#/components/schemas/Problem"},
+                "examples": {
+                  "timeout": {
+                    "value": {
+                      "status": 504,
+                      "code": "embedding_provider_timeout",
+                      "title": "The semantic search provider timed out."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/search/stats": {
+      "get": {
+        "operationId": "getSearchStats",
+        "summary": "Read compatible index counts without contacting SPUR",
+        "responses": {
+          "401": {"$ref":"#/components/responses/AuthenticationRequired"},
+          "200": {
+            "description": "Current eligibility and index counts. Counts refer to the configured vector profile.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref":"#/components/schemas/SearchStats"},
+                "examples": {
+                  "enabled": {
+                    "value": {
+                      "embeddingsConfigured": true,
+                      "model": "spur-embed",
+                      "totalDocuments": 3,
+                      "indexedDocuments": 1,
+                      "totalChunks": 2
+                    }
+                  },
+                  "disabled": {
+                    "value": {
+                      "embeddingsConfigured": false,
+                      "model": "spur-embed",
+                      "totalDocuments": 3,
+                      "indexedDocuments": 0,
+                      "totalChunks": 0
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {"$ref":"#/components/responses/Unavailable"}
+        }
+      }
     }
   },
   "components": {
+    "securitySchemes": {
+      "workspaceCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "origin_vault_session"
+      }
+    },
     "parameters": {
-      "DocumentId": {"name":"id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}
+      "DocumentId": {"name":"id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},
+      "WorkspaceRequest": {
+        "in": "header",
+        "name": "X-Workspace-Request",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "enum": [
+            "1"
+          ]
+        },
+        "description": "Same-origin intent marker. Do not enable cross-origin credentialed requests."
+      }
     },
     "schemas": {
+      "WorkspaceUser": {
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "displayName",
+          "role",
+          "active"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "username": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 64
+          },
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "reader"
+            ]
+          },
+          "active": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Login": {
+        "type": "object",
+        "required": [
+          "username",
+          "password"
+        ],
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string",
+            "writeOnly": true
+          }
+        }
+      },
+      "CreateUser": {
+        "type": "object",
+        "required": [
+          "username",
+          "displayName",
+          "role",
+          "password"
+        ],
+        "properties": {
+          "username": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 64
+          },
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "reader"
+            ]
+          },
+          "password": {
+            "type": "string",
+            "writeOnly": true,
+            "minLength": 12,
+            "maxLength": 128
+          }
+        }
+      },
+      "UpdateUser": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "reader"
+            ]
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "password": {
+            "type": "string",
+            "writeOnly": true,
+            "minLength": 12,
+            "maxLength": 128
+          }
+        },
+        "minProperties": 1
+      },
       "Receipt": {
         "type": "object",
         "required": ["id"],
@@ -292,7 +1191,7 @@
           "failureCode": {
             "type": "string",
             "minLength": 1,
-            "description": "Safe machine-readable terminal cause; present only in Failed. Never provider text or document content."
+            "description": "Safe terminal code from the backend resource catalog; present only in Failed. A vetted reader cause is retained when available. Older receipts may use reader_rejected. Never provider text or document content."
           }
         },
         "if": {"properties":{"state":{"const":"Failed"}}},
@@ -363,6 +1262,84 @@
         "if": {"properties":{"fragments":{"maxItems":0}}},
         "then": {"properties":{"warnings":{"minItems":1}}}
       },
+      "DocumentIndexStatus": {
+        "type": "object",
+        "required": ["id","state","attempt","chunkCount"],
+        "properties": {
+          "id": {"type":"string","format":"uuid"},
+          "state": {
+            "type": "string",
+            "enum": ["AwaitingReading","NotApplicable","NotIndexed","Queued","Processing","Completed","Skipped","Failed"]
+          },
+          "attempt": {"type":"integer","minimum":0,"maximum":3},
+          "chunkCount": {"type":"integer","minimum":0},
+          "failureCode": {"type":"string","minLength":1,"description":"Safe terminal cause, present only for Failed."}
+        },
+        "if": {"properties":{"state":{"const":"Failed"}}},
+        "then": {"required":["failureCode"]},
+        "else": {"not":{"required":["failureCode"]}}
+      },
+      "SemanticSearchRequest": {
+        "type": "object",
+        "required": ["query"],
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000,
+            "description": "Trimmed query; whitespace-only input and NUL characters are rejected."
+          },
+          "topK": {"type":["integer","null"],"minimum":1,"maximum":50,"default":8},
+          "documentId": {"type":["string","null"],"format":"uuid"}
+        }
+      },
+      "SemanticSearchResponse": {
+        "type": "object",
+        "required": ["query","model","results"],
+        "properties": {
+          "query": {"type":"string","minLength":1,"maxLength":1000},
+          "model": {"type":"string"},
+          "results": {"type":"array","maxItems":50,"items":{"$ref":"#/components/schemas/SemanticSearchHit"}}
+        }
+      },
+      "SemanticSearchHit": {
+        "type": "object",
+        "required": ["chunkId","documentId","chunkIndex","sourceName","locator","pageLocator","text","model","score"],
+        "properties": {
+          "chunkId": {"type":"string","format":"uuid"},
+          "documentId": {"type":"string","format":"uuid"},
+          "chunkIndex": {"type":"integer","minimum":0},
+          "sourceName": {
+            "type": "null",
+            "description": "Retained for compatibility; original names are not admitted to the new index."
+          },
+          "locator": {"type":"string","description":"Legacy display locator, such as page 1."},
+          "pageLocator": {
+            "type": "object",
+            "required": ["kind","page"],
+            "properties": {"kind":{"const":"page"},"page":{"type":"integer","minimum":1,"maximum":20}}
+          },
+          "text": {"type":"string","minLength":1,"maxLength":1500},
+          "model": {"type":"string"},
+          "score": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Cosine similarity clamped to [0, 1]; not confidence or evidence quality."
+          }
+        }
+      },
+      "SearchStats": {
+        "type": "object",
+        "required": ["embeddingsConfigured","model","totalDocuments","indexedDocuments","totalChunks"],
+        "properties": {
+          "embeddingsConfigured": {"type":"boolean"},
+          "model": {"type":"string"},
+          "totalDocuments": {"type":"integer","minimum":0},
+          "indexedDocuments": {"type":"integer","minimum":0},
+          "totalChunks": {"type":"integer","minimum":0}
+        }
+      },
       "Problem": {
         "type": "object",
         "required": ["status","code","title"],
@@ -375,6 +1352,139 @@
       }
     },
     "responses": {
+      "AuthenticationRequired": {
+        "description": "A current workspace session is required.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            },
+            "examples": {
+              "problem": {
+                "value": {
+                  "status": 401,
+                  "code": "authentication_required",
+                  "title": "A current workspace session is required."
+                }
+              }
+            }
+          }
+        }
+      },
+      "InvalidCredentials": {
+        "description": "Invalid username or password.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            },
+            "examples": {
+              "problem": {
+                "value": {
+                  "status": 401,
+                  "code": "invalid_credentials",
+                  "title": "Invalid username or password."
+                }
+              }
+            }
+          }
+        }
+      },
+      "AccessDenied": {
+        "description": "The account lacks permission or a required workspace request header was missing.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            },
+            "examples": {
+              "problem": {
+                "value": {
+                  "status": 403,
+                  "code": "forbidden",
+                  "title": "The account lacks permission or a required workspace request header was missing."
+                }
+              }
+            }
+          }
+        }
+      },
+      "AccountInput": {
+        "description": "Invalid account request.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            },
+            "examples": {
+              "problem": {
+                "value": {
+                  "status": 400,
+                  "code": "invalid_auth_request",
+                  "title": "Invalid account request."
+                }
+              }
+            }
+          }
+        }
+      },
+      "AccountConflict": {
+        "description": "The request conflicts with an account or administrator safeguard.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            },
+            "examples": {
+              "problem": {
+                "value": {
+                  "status": 409,
+                  "code": "username_taken",
+                  "title": "The request conflicts with an account or administrator safeguard."
+                }
+              }
+            }
+          }
+        }
+      },
+      "AccountMissing": {
+        "description": "The user does not exist.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            },
+            "examples": {
+              "problem": {
+                "value": {
+                  "status": 404,
+                  "code": "user_not_found",
+                  "title": "The user does not exist."
+                }
+              }
+            }
+          }
+        }
+      },
+      "LoginLimited": {
+        "description": "Too many sign-in attempts.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            },
+            "examples": {
+              "problem": {
+                "value": {
+                  "status": 429,
+                  "code": "login_rate_limited",
+                  "title": "Too many sign-in attempts."
+                }
+              }
+            }
+          }
+        }
+      },
       "InvalidRequest": {
         "description": "Malformed request, missing/invalid key, or missing, empty or multiple files.",
         "content": {

@@ -7,7 +7,7 @@ interface FindingsPanelProps {
   onOpenSource: (n: number) => void;
 }
 
-/** Open findings with their cited sources and the next step for each. */
+/** Render supplied findings and use the citation lookup and opening callback to link sources. */
 export function FindingsPanel({ findings, numberOf, onOpenSource }: FindingsPanelProps) {
   const highCount = findings.filter((f) => f.severity === "high").length;
   return (

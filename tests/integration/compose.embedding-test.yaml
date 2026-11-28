@@ -1,0 +1,18 @@
+# No external access: both OCR and embeddings are replaced with synthetic providers.
+services:
+  api:
+    environment:
+      ASPNETCORE_ENVIRONMENT: Testing
+      Spur__EmbeddingsEnabled: "true"
+  spur-index-worker:
+    environment:
+      DOTNET_ENVIRONMENT: Testing
+    depends_on:
+      embedding-stub:
+        condition: service_started
+  embedding-stub:
+    image: python:3.12-bookworm
+    command: ["python", "-B", "/stub.py"]
+    read_only: true
+    volumes:
+      - ./tests/integration/embedding_stub.py:/stub.py:ro

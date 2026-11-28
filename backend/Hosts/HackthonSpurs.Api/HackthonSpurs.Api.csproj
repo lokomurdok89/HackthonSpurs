@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../Adapters/HackthonSpurs.Persistence/HackthonSpurs.Persistence.csproj" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.15" PrivateAssets="all" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../Core/HackthonSpurs.Application/HackthonSpurs.Application.csproj" />
+    <ProjectReference Include="../../Shared/HackthonSpurs.Resources/HackthonSpurs.Resources.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,65 @@
+# Explicit opt-in. Does not change the default or synthetic worker's routing.
+x-spur-embeddings: &spur-embeddings
+  Spur__EmbeddingsEnabled: "${SPUR_EMBEDDINGS_ENABLED:-true}"
+  Spur__BaseUrl: "${SPUR_BASE_URL:-}"
+  Spur__ApiKey: ${SPUR_API_KEY:?Set the private SPUR API key}
+  Spur__EmbedModel: "${SPUR_EMBED_MODEL:-}"
+  Spur__EmbedVersion: "${SPUR_EMBED_VERSION:-}"
+  Spur__EmbedDimensions: "${SPUR_EMBED_DIMENSIONS:-}"
+services:
+  api:
+    environment:
+      <<: *spur-embeddings
+      Spur__Enabled: "true"
+  spur-worker:
+    read_only: true
+    mem_limit: 1g
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    build:
+      context: .
+      dockerfile: backend/Hosts/HackthonSpurs.Worker/Dockerfile
+      target: document-ocr
+    environment:
+      ConnectionStrings__Documents: "Host=postgres;Database=documents;Username=documents;Timeout=5;Command Timeout=10"
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set a local database password}
+      Storage__Root: /data/originals
+      SPUR_OCR_IMAGE_TARGET_BYTES: "${SPUR_OCR_IMAGE_TARGET_BYTES:-79999}"
+      SPUR_OCR_MAX_JSON_BYTES: "${SPUR_OCR_MAX_JSON_BYTES:-128000}"
+      SPUR_OCR_MODEL: ${SPUR_OCR_MODEL:?Set the SPUR vision model ID}
+      SPUR_OCR_ADAPTIVE_MONOCHROME: "${SPUR_OCR_ADAPTIVE_MONOCHROME:-true}"
+      Reader__Endpoint: http://spur-reader:8080/internal/read
+    volumes:
+      - originals:/data/originals:ro
+    depends_on:
+      - api
+      - spur-reader
+  spur-index-worker:
+    profiles: [semantic-index]
+    read_only: true
+    tmpfs:
+      - /tmp
+    build:
+      context: .
+      dockerfile: backend/Hosts/HackthonSpurs.Worker/Dockerfile
+      target: fixture
+    environment:
+      <<: *spur-embeddings
+      Indexing__Worker: "true"
+      ConnectionStrings__Documents: "Host=postgres;Database=documents;Username=documents;Timeout=5;Command Timeout=10"
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set a local database password}
+    depends_on:
+      - api
+  spur-reader:
+    build:
+      context: .
+      dockerfile: backend/OCR/HackthonSpurs.Reader.Spur/Dockerfile
+    environment:
+      SPUR_OCR_IMAGE_TARGET_BYTES: "${SPUR_OCR_IMAGE_TARGET_BYTES:-79999}"
+      SPUR_OCR_MAX_JSON_BYTES: "${SPUR_OCR_MAX_JSON_BYTES:-128000}"
+      SPUR_OCR_ENDPOINT: ${SPUR_OCR_ENDPOINT:?Set the SPUR chat completions URL}
+      SPUR_OCR_MODEL: ${SPUR_OCR_MODEL:?Set the SPUR vision model ID}
+      SPUR_API_KEY: ${SPUR_API_KEY:?Set the private SPUR API key}
+    read_only: true
+    tmpfs:
+      - /tmp

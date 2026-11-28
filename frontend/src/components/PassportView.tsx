@@ -16,7 +16,7 @@ interface PassportViewProps {
   showLots?: boolean;
 }
 
-/** What a buyer sees behind the QR code. Unknown values are shown as unknown, never as zero. */
+/** Render the supplied passport and optionally limit fields to shared labels or omit lot details. */
 export function PassportView({ passport, shared, showLots = true }: PassportViewProps) {
   const fields = passport.fields.filter((f) => !shared || shared.has(f.label));
 

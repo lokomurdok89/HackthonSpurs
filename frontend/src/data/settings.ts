@@ -31,7 +31,12 @@ interface State {
 }
 
 const KEY = "origin-vault:settings";
-const WHO = "Demo User";
+let actor = "Unknown user";
+
+/** Name recorded on activity log entries: the signed-in account. */
+export function setActor(name: string) {
+  actor = name;
+}
 
 // The top-bar toggle used to save its own key. Carry that choice over once.
 function legacyTheme(): ThemeChoice {
@@ -95,12 +100,12 @@ export function useActivityLog() {
 
 /** Appends to the activity log. Newest first, capped so storage stays small. */
 export function logActivity(action: string, detail: string) {
-  const entry: LogEntry = { at: new Date().toISOString(), who: WHO, action, detail };
+  const entry: LogEntry = { at: new Date().toISOString(), who: actor, action, detail };
   commit({ ...state, log: [entry, ...state.log].slice(0, 200) });
 }
 
 export function updateSettings(patch: Partial<Settings>, detail: string) {
-  const entry: LogEntry = { at: new Date().toISOString(), who: WHO, action: "Changed setting", detail };
+  const entry: LogEntry = { at: new Date().toISOString(), who: actor, action: "Changed setting", detail };
   commit({ settings: { ...state.settings, ...patch }, log: [entry, ...state.log].slice(0, 200) });
 }
 

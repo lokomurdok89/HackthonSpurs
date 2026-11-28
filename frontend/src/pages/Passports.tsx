@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
+import { publicPassportUrl } from "../data/passportUrl";
 import { logActivity, useSettings } from "../data/settings";
 import { QRCodeSVG } from "qrcode.react";
 import type { Passport, PassportField } from "../data/types";
 import { PassportView } from "../components/PassportView";
 import "./Passports.css";
 
-/** Only values a person has approved (or honest "not available" gaps) can leave the vault. */
+/** Check whether a passport field is approved or explicitly unavailable and may be included in a demo preview. */
 const shareable = (f: PassportField) => f.status === "verified" || f.status === "missing";
 
 const BLOCK_REASON: Partial<Record<PassportField["status"], string>> = {
@@ -20,12 +21,7 @@ const STATUS_TEXT: Record<PassportField["status"], string> = {
   flagged: "Needs correction",
 };
 
-/** Builds the public link. Shared fields are encoded by index so the QR changes as you toggle. */
-export function publicPassportUrl(productId: string, sharedIdx: number[], lots: boolean) {
-  const q = new URLSearchParams({ share: sharedIdx.join(","), lots: lots ? "1" : "0" });
-  return `${window.location.origin}${window.location.pathname}#/p/${encodeURIComponent(productId)}?${q}`;
-}
-
+/** Preview the supplied synthetic passport and select which allowed fields appear in the QR link. */
 export function Passports({ passport }: { passport: Passport }) {
   const { defaultShared, defaultShowLots } = useSettings();
   const [shared, setShared] = useState<Set<string>>(
@@ -40,6 +36,7 @@ export function Passports({ passport }: { passport: Passport }) {
   const [copied, setCopied] = useState(false);
 
   const counts = useMemo(() => {
+    /** Count passport fields with the supplied status. */
     const by = (s: PassportField["status"]) => passport.fields.filter((f) => f.status === s).length;
     return { verified: by("verified"), flagged: by("flagged"), missing: by("missing"), pending: by("pending") };
   }, [passport]);
@@ -47,6 +44,7 @@ export function Passports({ passport }: { passport: Passport }) {
   const sharedIdx = passport.fields.flatMap((f, i) => (shared.has(f.label) ? [i] : []));
   const url = publicPassportUrl(passport.productId, sharedIdx, showLots);
 
+  /** Toggle whether the field indicated by label is included in the preview. */
   const toggle = (label: string) =>
     setShared((prev) => {
       const next = new Set(prev);
@@ -55,6 +53,7 @@ export function Passports({ passport }: { passport: Passport }) {
       return next;
     });
 
+  /** Copy the current synthetic passport preview URL and show temporary confirmation. */
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(url);

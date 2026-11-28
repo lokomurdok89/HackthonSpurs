@@ -1,66 +1,47 @@
+import { getJson, toProblem } from "./client";
 import { ApiError } from "./errors";
-import type {
-  IndexDocumentResponse,
-  Problem,
-  Receipt,
-  SearchStats,
-  SemanticSearchResponse,
-} from "./types";
+import { workspaceFetch } from "./workspaceFetch";
+import type { DocumentDetailView, DocumentIndexStatus, SearchStats, SemanticSearchResponse } from "./types";
 
-async function readProblem(res: Response): Promise<Problem> {
-  try {
-    const body = (await res.json()) as Partial<Problem>;
-    if (typeof body.code === "string") {
-      return { status: res.status, code: body.code, title: body.title ?? "Request failed" };
-    }
-  } catch {
-    // fallback below
-  }
-  return { status: res.status, code: "request_failed", title: `Request failed (${res.status})` };
+/** Read the durable index state without initiating any work.
+ * @param id - Document receipt identifier.
+ * @param signal - Cancellation for a view that is being closed.
+ */
+export function getIndexStatus(id: string, signal?: AbortSignal): Promise<DocumentIndexStatus> {
+  return getJson(`/api/documents/${encodeURIComponent(id)}/index-status`, signal);
 }
 
-export async function getSearchStats(): Promise<SearchStats> {
-  const res = await fetch("/api/search/stats", { headers: { Accept: "application/json" } });
-  if (!res.ok) throw new ApiError(await readProblem(res));
-  return (await res.json()) as SearchStats;
+/** Read compatible index counts without contacting the provider.
+ * @param signal - Optional cancellation for the active view.
+ */
+export function getSearchStats(signal?: AbortSignal): Promise<SearchStats> {
+  return getJson("/api/search/stats", signal);
 }
 
-export async function semanticSearch(
-  query: string,
-  topK = 8,
-  documentId?: string,
-): Promise<SemanticSearchResponse> {
-  const res = await fetch("/api/search", {
+/** Search the stored OCR excerpts only when explicitly submitted.
+ * @param query - User-entered search text.
+ * @param documentId - Optional scope for the search.
+ * @param topK - Maximum number of ranked excerpts requested.
+ * @param signal - Cancellation for a view that is being closed.
+ */
+export async function semanticSearch(query: string, documentId: string, topK: number, signal?: AbortSignal): Promise<SemanticSearchResponse> {
+  const response = await workspaceFetch("/api/search", {
     method: "POST",
+    signal,
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify({ query, topK, documentId: documentId || undefined }),
   });
-  if (!res.ok) throw new ApiError(await readProblem(res));
-  return (await res.json()) as SemanticSearchResponse;
+  if (!response.ok) throw new ApiError(await toProblem(response));
+  return (await response.json()) as SemanticSearchResponse;
 }
 
-export async function uploadAndIndexDocument(file: File): Promise<{
-  receipt: Receipt;
-  indexed: IndexDocumentResponse;
-}> {
-  const form = new FormData();
-  form.append("file", file);
+/** Read the stored index excerpts for receipt id, cancelled by signal on navigation. */
+export function getDocumentDetail(id: string, signal?: AbortSignal): Promise<DocumentDetailView> {
+  return getJson(`/api/documents/${encodeURIComponent(id)}/chunks`, signal);
+}
 
-  const uploadRes = await fetch("/api/documents", {
-    method: "POST",
-    headers: { "Idempotency-Key": crypto.randomUUID() },
-    body: form,
-  });
-  if (uploadRes.status !== 202) throw new ApiError(await readProblem(uploadRes));
-  const receipt = (await uploadRes.json()) as Receipt;
-
-  const indexRes = await fetch(`/api/documents/${encodeURIComponent(receipt.id)}/index`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({ sourceName: file.name }),
-  });
-  if (!indexRes.ok) throw new ApiError(await readProblem(indexRes));
-  const indexed = (await indexRes.json()) as IndexDocumentResponse;
-
-  return { receipt, indexed };
+/** Queue embeddings from the existing transcript for receipt id; never uploads the original. */
+export async function reindexDocument(id: string) {
+  const response = await workspaceFetch(`/api/documents/${encodeURIComponent(id)}/reindex`, { method: "POST" });
+  if (!response.ok) throw new ApiError(await toProblem(response));
 }
