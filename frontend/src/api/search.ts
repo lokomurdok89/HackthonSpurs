@@ -21,14 +21,15 @@ export function getSearchStats(signal?: AbortSignal): Promise<SearchStats> {
 /** Search the stored OCR excerpts only when explicitly submitted.
  * @param query - User-entered search text.
  * @param documentId - Optional scope for the search.
+ * @param topK - Maximum number of ranked excerpts requested.
  * @param signal - Cancellation for a view that is being closed.
  */
-export async function semanticSearch(query: string, documentId: string, signal?: AbortSignal): Promise<SemanticSearchResponse> {
+export async function semanticSearch(query: string, documentId: string, topK: number, signal?: AbortSignal): Promise<SemanticSearchResponse> {
   const response = await workspaceFetch("/api/search", {
     method: "POST",
     signal,
     headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({ query, topK: 8, documentId: documentId || undefined }),
+    body: JSON.stringify({ query, topK, documentId: documentId || undefined }),
   });
   if (!response.ok) throw new ApiError(await toProblem(response));
   return (await response.json()) as SemanticSearchResponse;

@@ -28,6 +28,7 @@ function SearchHit({ hit }: { hit: SemanticSearchHit }) {
         <a href={`#/documents/${hit.documentId}/page/${page}`}>Open reading · Page {page}</a>
         <span>Similarity {Math.round(hit.score * 100)}%</span>
       </div>
+      <small>Document {hit.documentId.slice(0, 8)} · {hit.model}</small>
       <p className="ds__hit-text">{hit.text}</p>
     </li>
   );
@@ -40,6 +41,8 @@ function SearchHit({ hit }: { hit: SemanticSearchHit }) {
 export function DocumentsSearch({ documentId }: { documentId: string }) {
   const [stats, setStats] = useState<SearchStats>();
   const [statsError, setStatsError] = useState(false);
+  const [revision, setRevision] = useState(0);
+  const [topK, setTopK] = useState(8);
   const [query, setQuery] = useState("");
   const [response, setResponse] = useState<SemanticSearchResponse>();
   const [busy, setBusy] = useState(false);
@@ -51,12 +54,14 @@ export function DocumentsSearch({ documentId }: { documentId: string }) {
     const controller = new AbortController();
     const { signal } = controller;
     void getSearchStats(signal).then((value) => {
-      if (!signal.aborted) setStats(value);
+      if (!signal.aborted) { setStats(value); setStatsError(false); }
     }).catch(() => {
-      if (!signal.aborted) setStatsError(true);
+      if (!signal.aborted) { setStats(undefined); setStatsError(true); }
     });
-    return () => { controller.abort(); active.current?.abort(); };
-  }, []);
+    return () => controller.abort();
+  }, [revision]);
+
+  useEffect(() => () => active.current?.abort(), []);
 
   const validScope = !documentId || RECEIPT_PATTERN.test(documentId);
   /** Submit the bounded query and render results only while this search view is active.
@@ -71,7 +76,7 @@ export function DocumentsSearch({ documentId }: { documentId: string }) {
     setError("");
     setResponse(undefined);
     try {
-      const value = await semanticSearch(query.trim(), documentId, controller.signal);
+      const value = await semanticSearch(query.trim(), documentId, topK, controller.signal);
       if (!controller.signal.aborted) setResponse(value);
     } catch (reason) {
       if (!controller.signal.aborted) setError(searchError(reason));
@@ -93,10 +98,11 @@ export function DocumentsSearch({ documentId }: { documentId: string }) {
       {apiMode !== "http" ? <p className="notice">Search requires the local API and SPUR indexing; no mock results are shown.</p> :
         <div className="panel">
           {stats && <p>{stats.embeddingsConfigured
-            ? `${stats.indexedDocuments} indexed documents · ${stats.totalChunks} excerpts`
+            ? `${stats.indexedDocuments}/${stats.totalDocuments} indexed documents · ${stats.totalChunks} excerpts · ${stats.model}`
             : "Semantic search is not enabled."}</p>}
           {!stats && !statsError && <p role="status">Checking search availability…</p>}
-          {statsError && <p role="alert">Cannot check search availability. Reload to try again.</p>}
+          {statsError && <p role="alert">Cannot check search availability. Refresh to try again.</p>}
+          <button className="btn btn--sm" type="button" onClick={() => setRevision((n) => n + 1)}>Refresh index stats</button>
           {documentId && validScope && <p>Searching one receipt. <a href="#/search">Search all documents</a></p>}
           {!validScope && <p role="alert">Invalid document link. <a href="#/search">Search all documents</a></p>}
           <form onSubmit={submit}>
@@ -105,12 +111,20 @@ export function DocumentsSearch({ documentId }: { documentId: string }) {
               <input className="ds__input" type="search" id="semantic-query" value={query} maxLength={1000} required
                 disabled={busy || !stats?.embeddingsConfigured || !validScope}
                 onChange={(event) => setQuery(event.target.value)} />
+              <select className="ds__select" aria-label="Result limit" value={topK} disabled={busy}
+                onChange={(e) => setTopK(Number(e.target.value))}>
+                {[5, 8, 15].map((value) => <option key={value} value={value}>Top {value}</option>)}
+              </select>
               <button type="submit" className="btn btn--primary"
                 disabled={busy || !query.trim() || !stats?.embeddingsConfigured || !validScope}>
                 {busy ? "Searching…" : "Search"}
               </button>
             </div>
           </form>
+          <div className="ds__samples" aria-label="Example queries">
+            {["CUSMA country of origin certificate", "material grade and heat number", "supplier invoice and tariff surcharge", "ISO 9001 calibration record"].map((sample) =>
+              <button className="btn btn--sm" type="button" disabled={busy} key={sample} onClick={() => setQuery(sample)}>{sample}</button>)}
+          </div>
           <p className="ds__hint">Submitting sends the query text to SPUR. Similarity indicates related text, not verified evidence.</p>
           {error && <p role="alert">{error}</p>}
           {response && <div aria-live="polite">

@@ -31,3 +31,6 @@
 }
 .ds__hit-head { margin-bottom: 8px; }
 .ds__hit-text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.ds__select { min-height: 44px; padding: 0 10px; background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; }
+.ds__samples { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
